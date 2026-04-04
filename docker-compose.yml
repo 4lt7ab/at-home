@@ -1,0 +1,18 @@
+services:
+  app:
+    build: .
+    ports:
+      - "0.0.0.0:3100:3100"
+    volumes:
+      - ./.docker/data:/app/data
+    environment:
+      - SQLITE_PATH=/app/data/sqlite.db
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+        reservations:
+          cpus: "0.5"
+          memory: 256M

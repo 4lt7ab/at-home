@@ -1,0 +1,20 @@
+// Domain barrel re-export
+export * from "./entities";
+export * from "./inputs";
+export * from "./errors";
+export * from "./recurrence";
+export * from "./services";
+export * from "./events";
+export { bootstrap, type AppContext } from "./bootstrap";
+export { createDatabase, getDbPath } from "./db/connection";
+export { runMigrations } from "./db/migrator";
+export { ActivityLogRepository, type InsertActivityLog } from "./repositories/activity-log";
+export { HomeTaskRepository, type HomeTaskFilter } from "./repositories/home-tasks";
+export { HomeTaskService } from "./services/home-tasks";
+export { ScheduleRepository } from "./repositories/schedules";
+export { ScheduleService } from "./services/schedules";
+export { NoteRepository, type NoteFilter } from "./repositories/notes";
+export { NoteService } from "./services/notes";
+export { buildDailySummary, type DailySummary, type DailySummaryItem } from "./summary";
+export { completeTask, type CompleteTaskInput, type CompleteTaskResult, type CompleteTaskServices } from "./operations/complete-task";
+export { parseArgs, parseCorsOrigins, logListening, getNetworkAddress, type ServerOptions } from "./args";

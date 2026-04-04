@@ -1,0 +1,30 @@
+import { Hono } from "hono";
+import type { ActivityLogRepository } from "../../domain/repositories/activity-log";
+
+export function activityLogRoutes(repo: ActivityLogRepository): Hono {
+  const app = new Hono();
+
+  // GET /api/activity-log
+  app.get("/", (c) => {
+    const entity_type = c.req.query("entity_type");
+    const entity_id = c.req.query("entity_id");
+    const rawLimit = parseInt(c.req.query("limit") ?? "", 10);
+    const limit = Number.isFinite(rawLimit) && rawLimit >= 1 ? Math.min(rawLimit, 200) : 50;
+    const rawOffset = parseInt(c.req.query("offset") ?? "", 10);
+    const offset = Number.isFinite(rawOffset) && rawOffset >= 0 ? rawOffset : 0;
+
+    const filter = { entity_type, entity_id, limit, offset } as {
+      entity_type?: string;
+      entity_id?: string;
+      limit: number;
+      offset: number;
+    };
+
+    return c.json({
+      data: repo.findMany(filter),
+      total: repo.count(filter),
+    });
+  });
+
+  return app;
+}

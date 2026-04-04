@@ -1,0 +1,15 @@
+node_modules/
+src/web/dist/
+src/web/node_modules/
+data/
+.local/
+.docker/
+.git/
+.claude/
+*.md
+*.db
+*.db-wal
+*.db-shm
+.DS_Store
+.env
+.env.*
