@@ -22,7 +22,7 @@ Open it once a day, see what's due, mark things done, move on.
 
 ```bash
 # Clone and install
-git clone <repo-url> && cd home
+git clone <repo-url> && cd tab-at-home
 bun install
 
 # Start the dev server (API on :3100, web on :3102)
@@ -119,3 +119,7 @@ src/
     src/pages/              #   Daily summary, task list, task detail, note list
     src/hooks/              #   Data fetching, routing, theme, event subscription
 ```
+
+## License
+
+Licensed under the Apache License 2.0 -- see [LICENSE](LICENSE) for details.

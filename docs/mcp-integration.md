@@ -12,7 +12,7 @@ The Model Context Protocol (MCP) is an open standard that lets AI assistants cal
 
 tab-at-home exposes its MCP server in two modes. Choose whichever fits your setup.
 
-### Option 1: Standalone MCP Server (stdio transport)
+### Option 1: Standalone MCP Server (HTTP transport)
 
 Run the MCP server as a standalone process. This is the simplest option for Claude Desktop and similar clients that manage their own server processes.
 
@@ -58,7 +58,7 @@ If tab-at-home is already running as a full server (`bun run dev` or `bun run se
 
 ## Available Tools
 
-All 17 tools are organized below by entity type. Each tool returns JSON. For full input schemas and response shapes, see the [MCP Tools and HTTP API Reference](../docs/api-reference.md) or the tool descriptions exposed by the server itself.
+All 17 tools are organized below by entity type. Each tool returns JSON. For full input schemas and response shapes, see the [MCP Tools and HTTP API Reference](./api-reference.md) or the tool descriptions exposed by the server itself.
 
 ### HomeTask Tools
 
