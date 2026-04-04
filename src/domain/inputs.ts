@@ -1,4 +1,4 @@
-import type { TaskStatus, Area, EffortLevel, RecurrenceType } from './entities';
+import type { TaskStatus, Area, EffortLevel, RecurrenceType, NoteType } from './entities';
 
 export interface CreateHomeTaskInput {
   title: string;
@@ -21,6 +21,7 @@ export interface CreateNoteInput {
   title: string;
   content?: string;
   task_id?: string;
+  note_type?: NoteType;
 }
 
 export interface UpdateNoteInput {

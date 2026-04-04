@@ -269,17 +269,18 @@ describe("TaskDetailPage", () => {
       });
     });
 
-    it("busy state disables button and shows 'Completing...'", async () => {
+    it("busy state disables Mark Done button", async () => {
       mockCompleteTask.mockReturnValue(new Promise(() => {}));
       setupHook();
       renderWithProviders(<TaskDetailPage {...defaultProps} />);
 
-      fireEvent.click(screen.getByText("Mark Done"));
+      const markDoneBtn = screen.getByText("Mark Done").closest("button")!;
+      fireEvent.click(markDoneBtn);
 
       await waitFor(() => {
-        expect(screen.getByText("Completing...")).toBeInTheDocument();
+        // Button atom shows a loading spinner and becomes disabled
+        expect(markDoneBtn).toBeDisabled();
       });
-      expect(screen.getByText("Completing...").closest("button")).toBeDisabled();
     });
 
     it("'+ note' link shows completion note textarea", () => {
@@ -492,13 +493,13 @@ describe("TaskDetailPage", () => {
     it("renders completion history entries", () => {
       setupHook();
       renderWithProviders(<TaskDetailPage {...defaultProps} />);
-      expect(screen.getByText("Completion History")).toBeInTheDocument();
+      expect(screen.getByText(/Completion History/)).toBeInTheDocument();
     });
 
     it("does not render section when history is empty", () => {
       setupHook({ completionHistory: [] });
       renderWithProviders(<TaskDetailPage {...defaultProps} />);
-      expect(screen.queryByText("Completion History")).not.toBeInTheDocument();
+      expect(screen.queryByText(/Completion History/)).not.toBeInTheDocument();
     });
   });
 

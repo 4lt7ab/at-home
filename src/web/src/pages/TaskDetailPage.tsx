@@ -7,241 +7,18 @@ import {
   createNotes, createSchedules, updateSchedules, deleteSchedules,
   fetchSchedule,
 } from "../api";
-import { StatusDot } from "../components/StatusDot";
+import {
+  Button, Select, Textarea, Badge, StatusDot, Input,
+  BackButton, Card, Stack,
+  ModalShell,
+  ContentCard, SectionHeading,
+  MarkdownContent, stripMarkdown,
+  useTheme,
+} from "../components";
+import { formatCompletionSummary } from "../utils";
 
 // ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
-
-const s = {
-  page: {
-    width: "100%",
-    maxWidth: 640,
-    margin: "0 auto",
-    padding: "24px 16px",
-  } as React.CSSProperties,
-
-  backBtn: {
-    fontSize: 13,
-    color: "var(--color-accent)",
-    cursor: "pointer",
-    border: "none",
-    background: "none",
-    padding: 0,
-    marginBottom: 16,
-    display: "inline-block",
-  } as React.CSSProperties,
-
-  title: {
-    fontSize: 22,
-    fontWeight: 600,
-    marginBottom: 4,
-    outline: "none",
-    cursor: "text",
-  } as React.CSSProperties,
-
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: 600,
-    color: "var(--color-text-muted)",
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.04em",
-    marginTop: 24,
-    marginBottom: 8,
-  } as React.CSSProperties,
-
-  badge: (color: string, bg: string) => ({
-    display: "inline-block",
-    fontSize: 11,
-    fontWeight: 500,
-    padding: "2px 6px",
-    borderRadius: 4,
-    color,
-    background: bg,
-    marginRight: 6,
-  }),
-
-  select: {
-    fontSize: 13,
-    padding: "4px 8px",
-    border: "1px solid var(--color-input-border)",
-    borderRadius: 4,
-    background: "var(--color-surface)",
-    color: "var(--color-text)",
-    marginRight: 8,
-  } as React.CSSProperties,
-
-  descriptionBox: {
-    width: "100%",
-    padding: "8px 10px",
-    fontSize: 14,
-    border: "1px solid var(--color-border)",
-    borderRadius: 4,
-    fontFamily: "inherit",
-    resize: "vertical" as const,
-    lineHeight: 1.5,
-    minHeight: 60,
-    background: "var(--color-surface)",
-    color: "var(--color-text)",
-  } as React.CSSProperties,
-
-  saveBtn: {
-    fontSize: 13,
-    padding: "6px 14px",
-    border: "1px solid var(--color-success)",
-    borderRadius: 6,
-    background: "var(--color-success)",
-    color: "var(--color-btn-text)",
-    cursor: "pointer",
-    marginTop: 8,
-  } as React.CSSProperties,
-
-  doneBtn: {
-    fontSize: 14,
-    padding: "8px 20px",
-    border: "1px solid var(--color-success)",
-    borderRadius: 6,
-    background: "var(--color-surface)",
-    color: "var(--color-success)",
-    cursor: "pointer",
-    fontWeight: 500,
-  } as React.CSSProperties,
-
-  card: {
-    padding: "10px 12px",
-    marginBottom: 6,
-    borderRadius: 4,
-    background: "var(--color-surface-alt)",
-    border: "1px solid var(--color-border-lighter)",
-    fontSize: 13,
-  } as React.CSSProperties,
-
-  input: {
-    width: "100%",
-    padding: "8px 10px",
-    fontSize: 14,
-    border: "1px solid var(--color-input-border)",
-    borderRadius: 4,
-    fontFamily: "inherit",
-    marginBottom: 8,
-    background: "var(--color-surface)",
-    color: "var(--color-text)",
-  } as React.CSSProperties,
-
-  link: {
-    fontSize: 13,
-    color: "var(--color-accent)",
-    cursor: "pointer",
-    border: "none",
-    background: "none",
-    padding: 0,
-    textDecoration: "underline",
-  } as React.CSSProperties,
-
-  historyItem: {
-    fontSize: 12,
-    color: "var(--color-text-muted)",
-    padding: "4px 0",
-    borderBottom: "1px solid var(--color-border-lightest)",
-  } as React.CSSProperties,
-
-  error: {
-    textAlign: "center" as const,
-    padding: "24px 16px",
-    color: "var(--color-danger)",
-  } as React.CSSProperties,
-
-  loading: {
-    textAlign: "center" as const,
-    padding: "48px 16px",
-    color: "var(--color-text-muted)",
-  } as React.CSSProperties,
-
-  dangerBtn: {
-    fontSize: 12,
-    padding: "4px 10px",
-    border: "1px solid var(--color-danger-bright)",
-    borderRadius: 4,
-    background: "var(--color-surface)",
-    color: "var(--color-danger-bright)",
-    cursor: "pointer",
-    marginLeft: 8,
-  } as React.CSSProperties,
-
-  overlay: {
-    position: "fixed" as const,
-    inset: 0,
-    background: "var(--color-overlay)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 100,
-  } as React.CSSProperties,
-
-  modal: {
-    background: "var(--color-surface)",
-    borderRadius: 8,
-    padding: 24,
-    width: "90%",
-    maxWidth: 400,
-    boxShadow: "0 4px 24px var(--color-shadow)",
-    color: "var(--color-text)",
-  } as React.CSSProperties,
-
-  formActions: {
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: 8,
-    marginTop: 12,
-  } as React.CSSProperties,
-
-  cancelBtn: {
-    fontSize: 13,
-    padding: "6px 14px",
-    border: "1px solid var(--color-input-border)",
-    borderRadius: 6,
-    background: "var(--color-surface)",
-    color: "var(--color-text)",
-    cursor: "pointer",
-  } as React.CSSProperties,
-
-  submitBtn: {
-    fontSize: 13,
-    padding: "6px 14px",
-    border: "1px solid var(--color-accent)",
-    borderRadius: 6,
-    background: "var(--color-accent)",
-    color: "var(--color-btn-text)",
-    cursor: "pointer",
-  } as React.CSSProperties,
-};
-
-const STATUS_COLORS: Record<string, { color: string; bg: string }> = {
-  active: { color: "var(--color-success)", bg: "var(--color-success-bg)" },
-  paused: { color: "var(--color-warning)", bg: "var(--color-warning-bg)" },
-  done: { color: "var(--color-text-muted)", bg: "var(--color-muted-bg)" },
-  archived: { color: "var(--color-text-faintest)", bg: "var(--color-bg)" },
-};
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function formatCompletionSummary(summary: string): string {
-  try {
-    const data = JSON.parse(summary);
-    const parts: string[] = [];
-    if (data.next_due) parts.push(`next due: ${data.next_due}`);
-    else if (data.next_due === null) parts.push("schedule complete");
-    if (data.last_completed) parts.push(`completed: ${data.last_completed}`);
-    return parts.length > 0 ? "Completed \u2014 " + parts.join(", ") : "Completed";
-  } catch {
-    return summary;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// ScheduleSection
+// ScheduleOverlay
 // ---------------------------------------------------------------------------
 
 function ScheduleOverlay({ taskId, existing, onClose, onSaved }: {
@@ -250,6 +27,7 @@ function ScheduleOverlay({ taskId, existing, onClose, onSaved }: {
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { theme } = useTheme();
   const [recurrenceType, setRecurrenceType] = useState(existing?.recurrence_type ?? "weekly");
   const [nextDue, setNextDue] = useState(existing?.next_due ?? "");
   const [ruleJson, setRuleJson] = useState("");
@@ -301,57 +79,64 @@ function ScheduleOverlay({ taskId, existing, onClose, onSaved }: {
   }
 
   return (
-    <div style={s.overlay} onClick={onClose}>
-      <form style={s.modal} onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
-        <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>
+    <ModalShell onClose={onClose} maxWidth={400}>
+      <form onSubmit={handleSubmit}>
+        <h3 style={{ fontSize: theme.font.size.lg, fontWeight: 600, marginBottom: theme.spacing.lg, color: theme.color.text }}>
           {existing ? "Edit Schedule" : "Create Schedule"}
         </h3>
-        <label style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Recurrence Type</label>
-        <select
-          style={{ ...s.select, width: "100%", marginBottom: 12 }}
-          value={recurrenceType}
-          onChange={(e) => setRecurrenceType(e.target.value)}
-        >
-          {RECURRENCE_TYPES.map((t) => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </select>
-
-        <label style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Next Due (YYYY-MM-DD)</label>
-        <input
-          type="date"
-          style={s.input}
-          value={nextDue}
-          onChange={(e) => setNextDue(e.target.value)}
-        />
-
-        <label style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Recurrence Rule (JSON, optional)</label>
-        <textarea
-          style={{ ...s.descriptionBox, minHeight: 40, marginBottom: 0 }}
-          rows={2}
-          placeholder={loadingRule ? "Loading..." : 'e.g. {"type":"weekly","days":[1,3,5]}'}
-          value={ruleJson}
-          onChange={(e) => setRuleJson(e.target.value)}
-          disabled={loadingRule}
-        />
-
-        {error && <div style={{ color: "var(--color-danger)", fontSize: 12, marginTop: 4 }}>{error}</div>}
-        <div style={s.formActions}>
-          <button type="button" style={s.cancelBtn} onClick={onClose}>Cancel</button>
-          <button type="submit" style={{ ...s.submitBtn, opacity: busy ? 0.5 : 1 }} disabled={busy}>
-            {busy ? "Saving..." : "Save"}
-          </button>
+        <div style={{ marginBottom: theme.spacing.md }}>
+          <Select
+            label="Recurrence Type"
+            value={recurrenceType}
+            onChange={(e) => setRecurrenceType(e.target.value)}
+          >
+            {RECURRENCE_TYPES.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </Select>
         </div>
+        <div style={{ marginBottom: theme.spacing.md }}>
+          <Input
+            label="Next Due (YYYY-MM-DD)"
+            type="date"
+            value={nextDue}
+            onChange={(e) => setNextDue(e.target.value)}
+          />
+        </div>
+        <div style={{ marginBottom: theme.spacing.sm }}>
+          <Textarea
+            label="Recurrence Rule (JSON, optional)"
+            rows={2}
+            placeholder={loadingRule ? "Loading..." : 'e.g. {"type":"weekly","days":[1,3,5]}'}
+            value={ruleJson}
+            onChange={(e) => setRuleJson(e.target.value)}
+            disabled={loadingRule}
+          />
+        </div>
+        {error && (
+          <div style={{ color: theme.color.danger, fontSize: theme.font.size.xs, marginTop: theme.spacing.xs }}>
+            {error}
+          </div>
+        )}
+        <Stack direction="row" justify="flex-end" gap="sm" style={{ marginTop: theme.spacing.md }}>
+          <Button variant="ghost" type="button" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" type="submit" loading={busy}>Save</Button>
+        </Stack>
       </form>
-    </div>
+    </ModalShell>
   );
 }
+
+// ---------------------------------------------------------------------------
+// ScheduleSection
+// ---------------------------------------------------------------------------
 
 function ScheduleSection({ taskId, schedules, onRefetch }: {
   taskId: string;
   schedules: ScheduleSummary[];
   onRefetch: () => void;
 }) {
+  const { theme } = useTheme();
   const [showOverlay, setShowOverlay] = useState(false);
   const [editSchedule, setEditSchedule] = useState<ScheduleSummary | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -370,34 +155,38 @@ function ScheduleSection({ taskId, schedules, onRefetch }: {
 
   return (
     <>
-      <h3 style={s.sectionLabel}>Schedule</h3>
+      <SectionHeading>Schedule</SectionHeading>
       {schedule ? (
-        <div style={s.card}>
+        <ContentCard variant="schedule">
           <div>
-            <span style={s.badge("var(--color-area)", "var(--color-area-bg)")}>{schedule.recurrence_type}</span>
+            <Badge variant="recurrence">{schedule.recurrence_type}</Badge>
             {schedule.next_due && (
-              <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Next due: {schedule.next_due}</span>
+              <span style={{ fontSize: theme.font.size.xs, color: theme.color.textMuted }}>Next due: {schedule.next_due}</span>
             )}
           </div>
           {schedule.last_completed && (
-            <div style={{ fontSize: 12, color: "var(--color-text-muted)", marginTop: 4 }}>
+            <div style={{ fontSize: theme.font.size.xs, color: theme.color.textFaint, marginTop: theme.spacing.xs }}>
               Last completed: {schedule.last_completed}
             </div>
           )}
-          <div style={{ marginTop: 8 }}>
-            <button style={s.link} onClick={() => { setEditSchedule(schedule); setShowOverlay(true); }}>
+          <div style={{ marginTop: theme.spacing.sm }}>
+            <Button variant="ghost" size="sm" onClick={() => { setEditSchedule(schedule); setShowOverlay(true); }}>
               Edit
-            </button>
-            <button style={s.dangerBtn} onClick={() => handleDelete(schedule.id)}>
+            </Button>
+            <Button variant="danger" size="sm" onClick={() => handleDelete(schedule.id)} style={{ marginLeft: theme.spacing.sm }}>
               Remove
-            </button>
+            </Button>
           </div>
-          {deleteError && <div style={{ color: "var(--color-danger)", fontSize: 12, marginTop: 4 }}>{deleteError}</div>}
-        </div>
+          {deleteError && (
+            <div style={{ color: theme.color.danger, fontSize: theme.font.size.xs, marginTop: theme.spacing.xs }}>
+              {deleteError}
+            </div>
+          )}
+        </ContentCard>
       ) : (
-        <button style={s.link} onClick={() => { setEditSchedule(null); setShowOverlay(true); }}>
+        <Button variant="ghost" size="sm" onClick={() => { setEditSchedule(null); setShowOverlay(true); }}>
           + Add schedule
-        </button>
+        </Button>
       )}
       {showOverlay && (
         <ScheduleOverlay
@@ -417,14 +206,18 @@ function ScheduleSection({ taskId, schedules, onRefetch }: {
 
 function NotesSection({ taskId, notes, onRefetch }: {
   taskId: string;
-  notes: Array<{ id: string; title: string; content?: string | null; task_id?: string | null }>;
+  notes: Array<{ id: string; title: string; content?: string | null; task_id?: string | null; note_type?: string }>;
   onRefetch: () => void;
 }) {
+  const { theme } = useTheme();
   const [showAdd, setShowAdd] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Filter to manual notes only (completion notes appear in CompletionHistory)
+  const manualNotes = notes.filter((n) => n.note_type !== "completion");
 
   async function handleAdd() {
     if (!newTitle.trim()) return;
@@ -445,43 +238,49 @@ function NotesSection({ taskId, notes, onRefetch }: {
 
   return (
     <>
-      <h3 style={s.sectionLabel}>Notes ({notes.length})</h3>
-      {notes.map((n) => (
-        <div key={n.id} style={s.card}>
+      <SectionHeading count={manualNotes.length}>Notes</SectionHeading>
+      {manualNotes.map((n) => (
+        <ContentCard key={n.id} variant="note">
           <div style={{ fontWeight: 500 }}>{n.title}</div>
           {n.content && (
-            <div style={{ fontSize: 12, color: "var(--color-text-muted)", marginTop: 4 }}>
-              {n.content.length > 120 ? n.content.slice(0, 120) + "..." : n.content}
-            </div>
+            n.content.length > 120
+              ? <div style={{ fontSize: theme.font.size.xs, color: theme.color.textFaint, marginTop: theme.spacing.xs }}>
+                  {stripMarkdown(n.content).slice(0, 120) + "..."}
+                </div>
+              : <MarkdownContent content={n.content} style={{ fontSize: theme.font.size.xs, color: theme.color.textFaint, marginTop: theme.spacing.xs }} />
           )}
-        </div>
+        </ContentCard>
       ))}
       {!showAdd ? (
-        <button style={s.link} onClick={() => setShowAdd(true)}>+ Add note</button>
+        <Button variant="ghost" size="sm" onClick={() => setShowAdd(true)}>+ Add note</Button>
       ) : (
-        <div style={{ ...s.card, background: "var(--color-surface)" }}>
-          <input
-            style={s.input}
-            placeholder="Note title"
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            autoFocus
-          />
-          <textarea
-            style={{ ...s.descriptionBox, minHeight: 40 }}
-            rows={2}
-            placeholder="Content (optional)"
-            value={newContent}
-            onChange={(e) => setNewContent(e.target.value)}
-          />
-          {error && <div style={{ color: "var(--color-danger)", fontSize: 12, marginTop: 4 }}>{error}</div>}
-          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-            <button style={s.cancelBtn} onClick={() => setShowAdd(false)}>Cancel</button>
-            <button style={{ ...s.submitBtn, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={handleAdd}>
-              {busy ? "Adding..." : "Add Note"}
-            </button>
+        <Card style={{ background: theme.color.surfaceContainer }}>
+          <div style={{ marginBottom: theme.spacing.sm }}>
+            <Input
+              placeholder="Note title"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              autoFocus
+            />
           </div>
-        </div>
+          <div style={{ marginBottom: theme.spacing.sm }}>
+            <Textarea
+              rows={2}
+              placeholder="Content (optional)"
+              value={newContent}
+              onChange={(e) => setNewContent(e.target.value)}
+            />
+          </div>
+          {error && (
+            <div style={{ color: theme.color.danger, fontSize: theme.font.size.xs, marginTop: theme.spacing.xs }}>
+              {error}
+            </div>
+          )}
+          <Stack direction="row" gap="sm" style={{ marginTop: theme.spacing.xs }}>
+            <Button variant="ghost" onClick={() => setShowAdd(false)}>Cancel</Button>
+            <Button variant="primary" loading={busy} onClick={handleAdd}>Add Note</Button>
+          </Stack>
+        </Card>
       )}
     </>
   );
@@ -491,19 +290,55 @@ function NotesSection({ taskId, notes, onRefetch }: {
 // CompletionHistory
 // ---------------------------------------------------------------------------
 
-function CompletionHistory({ history }: { history: ActivityLog[] }) {
+function CompletionHistory({ history, notes }: {
+  history: ActivityLog[];
+  notes: Array<{ id: string; title: string; content?: string | null; note_type?: string }>;
+}) {
+  const { theme } = useTheme();
+
   if (history.length === 0) return null;
+
+  // Build a map of note_id -> note for correlating completion entries with their notes
+  const noteMap = new Map<string, typeof notes[number]>();
+  for (const n of notes) {
+    noteMap.set(n.id, n);
+  }
+
   return (
     <>
-      <h3 style={s.sectionLabel}>Completion History</h3>
-      {history.map((entry) => (
-        <div key={entry.id} style={s.historyItem}>
-          <span>{formatCompletionSummary(entry.summary)}</span>
-          <span style={{ marginLeft: 8, color: "var(--color-text-faintest)" }}>
-            {new Date(entry.created_at).toLocaleDateString()}
-          </span>
-        </div>
-      ))}
+      <SectionHeading count={history.length}>Completion History</SectionHeading>
+      {history.map((entry) => {
+        // Try to extract note_id from the activity log summary
+        let noteId: string | null = null;
+        try {
+          const data = JSON.parse(entry.summary);
+          noteId = data.note_id ?? null;
+        } catch { /* ignore */ }
+        const companionNote = noteId ? noteMap.get(noteId) ?? null : null;
+
+        return (
+          <div key={entry.id}>
+            <ContentCard variant="history">
+              <span>{formatCompletionSummary(entry.summary)}</span>
+              <span style={{ marginLeft: theme.spacing.sm, color: theme.color.textFaint }}>
+                {new Date(entry.created_at).toLocaleDateString()}
+              </span>
+            </ContentCard>
+            {companionNote && (
+              <ContentCard variant="completion-note" style={{ marginLeft: theme.spacing.md, marginTop: 2 }}>
+                <div style={{ fontWeight: 500, fontSize: theme.font.size.xs }}>{companionNote.title}</div>
+                {companionNote.content && (
+                  companionNote.content.length > 120
+                    ? <div style={{ fontSize: theme.font.size.xxs, color: theme.color.textFaint, marginTop: 2 }}>
+                        {stripMarkdown(companionNote.content).slice(0, 120) + "..."}
+                      </div>
+                    : <MarkdownContent content={companionNote.content} style={{ fontSize: theme.font.size.xxs, color: theme.color.textFaint, marginTop: 2 }} />
+                )}
+              </ContentCard>
+            )}
+          </div>
+        );
+      })}
     </>
   );
 }
@@ -513,6 +348,7 @@ function CompletionHistory({ history }: { history: ActivityLog[] }) {
 // ---------------------------------------------------------------------------
 
 export function TaskDetailPage({ taskId, onBack }: { taskId: string; onBack: () => void }) {
+  const { theme } = useTheme();
   const { task, schedules, notes, completionHistory, loading, error, refetch } = useTask(taskId);
 
   // Inline editing state
@@ -528,8 +364,20 @@ export function TaskDetailPage({ taskId, onBack }: { taskId: string; onBack: () 
   const [completionNote, setCompletionNote] = useState("");
   const [showCompletionNote, setShowCompletionNote] = useState(false);
 
-  if (loading && !task) return <div style={s.loading}>Loading task...</div>;
-  if (error && !task) return <div style={s.error}>{error}</div>;
+  if (loading && !task) {
+    return (
+      <div style={{ textAlign: "center", padding: `${theme.spacing["2xl"]} ${theme.spacing.lg}`, color: theme.color.textMuted }}>
+        Loading task...
+      </div>
+    );
+  }
+  if (error && !task) {
+    return (
+      <div style={{ textAlign: "center", padding: `${theme.spacing.xl} ${theme.spacing.lg}`, color: theme.color.danger }}>
+        {error}
+      </div>
+    );
+  }
   if (!task) return null;
 
   const currentTitle = editTitle ?? task.title;
@@ -586,42 +434,58 @@ export function TaskDetailPage({ taskId, onBack }: { taskId: string; onBack: () 
   }
 
   return (
-    <div style={s.page}>
-      <button style={s.backBtn} onClick={onBack}>&larr; Back to Tasks</button>
+    <div style={{
+      width: "100%",
+      maxWidth: 640,
+      margin: "0 auto",
+      padding: `${theme.spacing.xl} ${theme.spacing.lg}`,
+    }}>
+      <BackButton onClick={onBack} label="Back to Tasks" style={{ marginBottom: theme.spacing.lg }} />
 
-      {/* Title (editable) */}
+      {/* Title (editable) -- raw input styled as heading per plan */}
       <input
-        style={{ ...s.title, border: "none", borderBottom: "2px solid transparent", width: "100%", background: "transparent", color: "var(--color-text)" }}
+        style={{
+          fontSize: theme.font.size.xl,
+          fontWeight: 600,
+          marginBottom: theme.spacing.xs,
+          outline: "none",
+          cursor: "text",
+          border: "none",
+          borderBottom: "2px solid transparent",
+          width: "100%",
+          background: "transparent",
+          color: theme.color.text,
+          fontFamily: theme.font.headline,
+        }}
         value={currentTitle}
         onChange={(e) => setEditTitle(e.target.value)}
       />
 
       {/* Status, Area, Effort selects */}
-      <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+      <div style={{ marginTop: theme.spacing.md, display: "flex", flexWrap: "wrap", gap: theme.spacing.sm, alignItems: "center" }}>
         <StatusDot status={currentStatus} />
-        <select style={s.select} value={currentStatus} onChange={(e) => setEditStatus(e.target.value)}>
+        <Select value={currentStatus} onChange={(e) => setEditStatus(e.target.value)} style={{ width: "auto", minWidth: 100 }}>
           {TASK_STATUSES.map((st) => (
             <option key={st} value={st}>{st}</option>
           ))}
-        </select>
-        <select style={s.select} value={currentArea} onChange={(e) => setEditArea(e.target.value)}>
+        </Select>
+        <Select value={currentArea} onChange={(e) => setEditArea(e.target.value)} style={{ width: "auto", minWidth: 120 }}>
           <option value="">No area</option>
           {AREAS.map((a) => (
             <option key={a} value={a}>{a.replace(/_/g, " ")}</option>
           ))}
-        </select>
-        <select style={s.select} value={currentEffort} onChange={(e) => setEditEffort(e.target.value)}>
+        </Select>
+        <Select value={currentEffort} onChange={(e) => setEditEffort(e.target.value)} style={{ width: "auto", minWidth: 100 }}>
           <option value="">No effort</option>
           {EFFORT_LEVELS.map((e) => (
             <option key={e} value={e}>{e}</option>
           ))}
-        </select>
+        </Select>
       </div>
 
       {/* Description */}
-      <h3 style={s.sectionLabel}>Description</h3>
-      <textarea
-        style={s.descriptionBox}
+      <SectionHeading>Description</SectionHeading>
+      <Textarea
         rows={4}
         placeholder="Add a description..."
         value={currentDesc}
@@ -630,39 +494,49 @@ export function TaskDetailPage({ taskId, onBack }: { taskId: string; onBack: () 
 
       {/* Save button */}
       {hasChanges && (
-        <button
-          style={{ ...s.saveBtn, opacity: saving ? 0.5 : 1 }}
-          disabled={saving}
+        <Button
+          variant="primary"
+          loading={saving}
           onClick={handleSave}
+          style={{ marginTop: theme.spacing.sm }}
         >
-          {saving ? "Saving..." : "Save Changes"}
-        </button>
+          Save Changes
+        </Button>
       )}
-      {saveError && <div style={{ color: "var(--color-danger)", fontSize: 12, marginTop: 4 }}>{saveError}</div>}
+      {saveError && (
+        <div style={{ color: theme.color.danger, fontSize: theme.font.size.xs, marginTop: theme.spacing.xs }}>
+          {saveError}
+        </div>
+      )}
 
       {/* Mark Done */}
-      <h3 style={s.sectionLabel}>Completion</h3>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <button
-          style={{ ...s.doneBtn, opacity: completing ? 0.5 : 1 }}
-          disabled={completing}
+      <SectionHeading>Completion</SectionHeading>
+      <div style={{ display: "flex", alignItems: "center", gap: theme.spacing.md }}>
+        <Button
+          variant="ghost"
+          loading={completing}
           onClick={handleComplete}
+          style={{ color: theme.color.success, borderColor: theme.color.success }}
         >
-          {completing ? "Completing..." : "Mark Done"}
-        </button>
+          Mark Done
+        </Button>
         {!showCompletionNote && (
-          <button style={s.link} onClick={() => setShowCompletionNote(true)}>+ note</button>
+          <Button variant="ghost" size="sm" onClick={() => setShowCompletionNote(true)}>+ note</Button>
         )}
       </div>
-      {completeError && <div style={{ color: "var(--color-danger)", fontSize: 12, marginTop: 4 }}>{completeError}</div>}
+      {completeError && (
+        <div style={{ color: theme.color.danger, fontSize: theme.font.size.xs, marginTop: theme.spacing.xs }}>
+          {completeError}
+        </div>
+      )}
       {showCompletionNote && (
-        <textarea
-          style={{ ...s.descriptionBox, marginTop: 8, minHeight: 40 }}
+        <Textarea
           rows={2}
           placeholder="Completion note..."
           value={completionNote}
           onChange={(e) => setCompletionNote(e.target.value)}
           autoFocus
+          style={{ marginTop: theme.spacing.sm }}
         />
       )}
 
@@ -673,7 +547,7 @@ export function TaskDetailPage({ taskId, onBack }: { taskId: string; onBack: () 
       <NotesSection taskId={taskId} notes={notes} onRefetch={refetch} />
 
       {/* Completion History */}
-      <CompletionHistory history={completionHistory} />
+      <CompletionHistory history={completionHistory} notes={notes} />
     </div>
   );
 }

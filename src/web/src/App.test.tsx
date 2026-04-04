@@ -10,8 +10,8 @@ const mockOnEvent = vi.fn();
 const mockSubscribeEvents = vi.fn(() => () => {});
 const mockToggleViewMode = vi.fn();
 let mockViewMode = "list";
-const mockSetMode = vi.fn();
-let mockThemeMode = "auto" as "auto" | "light" | "dark";
+const mockSetTheme = vi.fn();
+let mockThemeName = "deepTeal";
 let mockConnected = true;
 
 vi.mock("./useRealtimeEvents", () => ({
@@ -25,15 +25,63 @@ vi.mock("./hooks", () => ({
   useHashRoute: () => ({ path: mockPath, navigate: mockNavigate }),
   useEventFanOut: () => ({ onEvent: mockOnEvent, subscribeEvents: mockSubscribeEvents }),
   useViewMode: () => ({ viewMode: mockViewMode, setViewMode: vi.fn(), toggleViewMode: mockToggleViewMode }),
-  useHotkey: vi.fn(),
+  useShortcut: vi.fn(),
   EventSubscriptionContext: (() => {
     const { createContext } = require("react");
     return createContext(null);
   })(),
 }));
 
-vi.mock("./ThemeContext", () => ({
-  useThemeContext: () => ({ mode: mockThemeMode, setMode: mockSetMode }),
+vi.mock("./components/organisms", () => ({
+  ShortcutHelpOverlay: () => null,
+}));
+
+vi.mock("./components/atoms", () => ({
+  AnimationStyles: () => null,
+  StatusDot: ({ status, color }: { status: string; color: string }) => (
+    <span data-testid="status-dot" title={status} style={{ background: color }} />
+  ),
+}));
+
+vi.mock("./components/molecules", () => ({
+  ThemeSwitcher: () => <button data-testid="theme-switcher">ThemeSwitcher</button>,
+}));
+
+vi.mock("./components/organisms/TopBar", () => ({
+  TopBar: ({ navItems, activePath, onNavigate, trailing }: Record<string, unknown>) => (
+    <header>
+      <nav>
+        {(navItems as Array<{ label: string; path: string }>).map((item) => (
+          <button
+            key={item.path}
+            style={{ fontWeight: (activePath as string) === item.path ? 600 : 400 }}
+            onClick={() => (onNavigate as (p: string) => void)(item.path)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </nav>
+      <div>{trailing as React.ReactNode}</div>
+    </header>
+  ),
+}));
+
+vi.mock("./components/organisms/ErrorBoundary", () => ({
+  ErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+const mockTheme = {
+  color: { border: "#333", surface: "#111", textMuted: "#888", text: "#eee", success: "#0f0", danger: "#f00", primary: "#5da" },
+  font: { body: "sans-serif", size: { sm: "14px" }, lineHeight: { normal: 1.5 } },
+  spacing: { sm: "0.5rem", md: "0.75rem", lg: "1rem", xl: "1.5rem" },
+  radius: { lg: 8, xl: 12 },
+  shadow: { lg: "none" },
+  motion: { fast: "100ms", normal: "200ms", easing: "ease" },
+};
+
+vi.mock("./components/theme", () => ({
+  useTheme: () => ({ theme: mockTheme, themeName: mockThemeName, setTheme: mockSetTheme }),
+  themes: { deepTeal: {}, ember: {} },
 }));
 
 vi.mock("./pages/DailySummaryPage", () => ({
@@ -70,7 +118,7 @@ vi.mock("./pages/NoteListPage", () => ({
 
 import { render, screen, fireEvent } from "@testing-library/react";
 import { App } from "./App";
-import { useHotkey } from "./hooks";
+import { useShortcut } from "./hooks";
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -82,11 +130,11 @@ beforeEach(() => {
   mockOnEvent.mockClear();
   mockSubscribeEvents.mockClear();
   mockToggleViewMode.mockClear();
-  mockSetMode.mockClear();
-  mockThemeMode = "auto";
+  mockSetTheme.mockClear();
+  mockThemeName = "deepTeal";
   mockConnected = true;
   mockViewMode = "list";
-  vi.mocked(useHotkey).mockClear();
+  vi.mocked(useShortcut).mockClear();
 });
 
 // ---------------------------------------------------------------------------
@@ -183,48 +231,21 @@ describe("App", () => {
     });
   });
 
-  describe("theme toggle", () => {
-    it("displays current theme icon and label", () => {
-      mockThemeMode = "auto";
+  describe("theme switcher", () => {
+    it("renders ThemeSwitcher molecule in the trailing area", () => {
       render(<App />);
-      expect(screen.getByText("Auto")).toBeInTheDocument();
-      // The half-circle icon for auto
-      expect(screen.getByText("\u25D0")).toBeInTheDocument();
-    });
-
-    it("clicking calls setMode with the next theme in cycle (auto -> light)", () => {
-      mockThemeMode = "auto";
-      render(<App />);
-      const themeBtn = screen.getByTitle("Theme: Auto");
-      fireEvent.click(themeBtn);
-      expect(mockSetMode).toHaveBeenCalledWith("light");
-    });
-
-    it("cycles light -> dark", () => {
-      mockThemeMode = "light";
-      render(<App />);
-      const themeBtn = screen.getByTitle("Theme: Light");
-      fireEvent.click(themeBtn);
-      expect(mockSetMode).toHaveBeenCalledWith("dark");
-    });
-
-    it("cycles dark -> auto", () => {
-      mockThemeMode = "dark";
-      render(<App />);
-      const themeBtn = screen.getByTitle("Theme: Dark");
-      fireEvent.click(themeBtn);
-      expect(mockSetMode).toHaveBeenCalledWith("auto");
+      expect(screen.getByTestId("theme-switcher")).toBeInTheDocument();
     });
   });
 
   describe("connection indicator", () => {
-    it("shows connected title when connected=true", () => {
+    it("shows Connected status dot when connected=true", () => {
       mockConnected = true;
       render(<App />);
       expect(screen.getByTitle("Connected")).toBeInTheDocument();
     });
 
-    it("shows disconnected title when connected=false", () => {
+    it("shows Disconnected status dot when connected=false", () => {
       mockConnected = false;
       render(<App />);
       expect(screen.getByTitle("Disconnected")).toBeInTheDocument();
@@ -249,10 +270,10 @@ describe("App", () => {
     });
   });
 
-  describe("hotkey registration", () => {
-    it("useHotkey is called with 'g', { shift: true }, toggleViewMode", () => {
+  describe("shortcut registration", () => {
+    it("useShortcut is called with 'shift+g' for toggle view mode", () => {
       render(<App />);
-      expect(useHotkey).toHaveBeenCalledWith("g", { shift: true }, expect.any(Function));
+      expect(useShortcut).toHaveBeenCalledWith("shift+g", "Toggle view mode", expect.any(Function), "Navigation");
     });
   });
 

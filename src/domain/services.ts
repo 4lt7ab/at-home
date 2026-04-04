@@ -1,4 +1,4 @@
-import type { HomeTask, HomeTaskSummary, Note, NoteSummary, Schedule, ScheduleSummary } from "./entities";
+import type { HomeTask, HomeTaskSummary, Note, NoteSummary, NoteType, Schedule, ScheduleSummary } from "./entities";
 import type {
   CreateHomeTaskInput,
   UpdateHomeTaskInput,
@@ -22,7 +22,7 @@ export interface IHomeTaskService {
 }
 
 export interface INoteService {
-  list(filter?: { id?: string; task_id?: string; title?: string; limit?: number; offset?: number }): Paginated<NoteSummary>;
+  list(filter?: { id?: string; task_id?: string; title?: string; note_type?: NoteType; limit?: number; offset?: number }): Paginated<NoteSummary>;
   get(id: string): Note;
   create(inputs: CreateNoteInput[]): Note[];
   update(inputs: UpdateNoteInput[]): Note[];

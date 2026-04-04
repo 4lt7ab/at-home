@@ -2,8 +2,8 @@ import { render, screen, fireEvent, waitFor, act, renderHook } from "@testing-li
 import userEvent from "@testing-library/user-event";
 import type { RenderOptions } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
-import { ThemeContext } from "../ThemeContext";
-import type { ThemeContextValue } from "../ThemeContext";
+import { ThemeProvider } from "../components/theme";
+import type { ThemeProviderProps } from "../components/theme";
 import { EventSubscriptionContext } from "../hooks/useEventSubscription";
 import type { EventSubscriptionContextValue } from "../hooks/useEventSubscription";
 import type { HomeTaskSummary, NoteSummary, ScheduleSummary } from "@domain/entities";
@@ -12,11 +12,6 @@ import type { DailySummary, DailySummaryItem } from "@domain/summary";
 // ---------------------------------------------------------------------------
 // Default mock context values
 // ---------------------------------------------------------------------------
-
-const defaultThemeContext: ThemeContextValue = {
-  mode: "light",
-  setMode: () => {},
-};
 
 const defaultEventContext: EventSubscriptionContextValue = {
   subscribeEvents: () => () => {},
@@ -28,7 +23,7 @@ const defaultEventContext: EventSubscriptionContextValue = {
 // ---------------------------------------------------------------------------
 
 interface ProviderOptions extends Omit<RenderOptions, "wrapper"> {
-  themeContext?: Partial<ThemeContextValue>;
+  themeName?: string;
   eventContext?: Partial<EventSubscriptionContextValue>;
 }
 
@@ -41,21 +36,20 @@ export function renderWithProviders(
   options: ProviderOptions = {},
 ) {
   const {
-    themeContext = {},
+    themeName = "deepTeal",
     eventContext = {},
     ...renderOptions
   } = options;
 
-  const theme = { ...defaultThemeContext, ...themeContext };
   const events = { ...defaultEventContext, ...eventContext };
 
   function Wrapper({ children }: { children: ReactNode }) {
     return (
-      <ThemeContext.Provider value={theme}>
+      <ThemeProvider forcedTheme={themeName} isolated>
         <EventSubscriptionContext.Provider value={events}>
           {children}
         </EventSubscriptionContext.Provider>
-      </ThemeContext.Provider>
+      </ThemeProvider>
     );
   }
 
@@ -100,6 +94,7 @@ export function makeNoteSummary(
     task_id: null,
     title: `Note ${id}`,
     has_content: false,
+    note_type: "manual" as const,
     created_at: NOW,
     updated_at: NOW,
     ...overrides,

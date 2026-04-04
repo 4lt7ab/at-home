@@ -12,7 +12,7 @@ interface UseNotesResult {
 }
 
 export function useNotes(params?: {
-  task_id?: string; title?: string; limit?: number; offset?: number;
+  task_id?: string; title?: string; note_type?: string; limit?: number; offset?: number;
 }): UseNotesResult {
   const [notes, setNotes] = useState<NoteSummary[]>([]);
   const [total, setTotal] = useState(0);

@@ -127,7 +127,7 @@ export async function deleteTasks(ids: string[]): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export async function fetchNotes(params?: {
-  task_id?: string; title?: string; limit?: number; offset?: number;
+  task_id?: string; title?: string; note_type?: string; limit?: number; offset?: number;
 }): Promise<{ data: NoteSummary[]; total: number }> {
   const res = await apiFetch(`/api/notes${qs(params)}`);
   return res.json();

@@ -3,7 +3,9 @@ import type {
   INoteService,
   CreateNoteInput,
   UpdateNoteInput,
+  NoteType,
 } from "../../domain";
+import { NOTE_TYPES } from "../../domain";
 
 export function noteRoutes(service: INoteService): Hono {
   const app = new Hono();
@@ -16,9 +18,13 @@ export function noteRoutes(service: INoteService): Hono {
     const offset = Number.isFinite(rawOffset) && rawOffset >= 0 ? rawOffset : 0;
     const task_id = c.req.query("task_id");
     const title = c.req.query("title");
-    const filter: { task_id?: string; title?: string; limit: number; offset: number } = { limit, offset };
+    const note_type = c.req.query("note_type");
+    const filter: { task_id?: string; title?: string; note_type?: NoteType; limit: number; offset: number } = { limit, offset };
     if (task_id) filter.task_id = task_id;
     if (title) filter.title = title;
+    if (note_type && (NOTE_TYPES as readonly string[]).includes(note_type)) {
+      filter.note_type = note_type as NoteType;
+    }
     return c.json(service.list(filter));
   });
 

@@ -143,10 +143,12 @@ describe("TaskListPage", () => {
   // -------------------------------------------------------------------------
 
   describe("loading state", () => {
-    it("shows 'Loading tasks...' when loading=true and tasks is empty", () => {
+    it("shows skeleton placeholders when loading=true and tasks is empty", () => {
       setupHook({ loading: true, tasks: [] });
-      renderWithProviders(<TaskListPage {...defaultProps} />);
-      expect(screen.getByText("Loading tasks...")).toBeInTheDocument();
+      const { container } = renderWithProviders(<TaskListPage {...defaultProps} />);
+      // Skeleton components render shimmer divs with animation
+      const skeletons = container.querySelectorAll("[style*='shimmer']");
+      expect(skeletons.length).toBeGreaterThan(0);
     });
   });
 
@@ -237,17 +239,15 @@ describe("TaskListPage", () => {
       expect(screen.queryByText("New Task")).not.toBeInTheDocument();
     });
 
-    it("closes on backdrop click", () => {
+    it("closes on Escape key press", () => {
       setupHook();
       renderWithProviders(<TaskListPage {...defaultProps} />);
 
       fireEvent.click(screen.getByText("+ New Task"));
       expect(screen.getByText("New Task")).toBeInTheDocument();
 
-      // Click the overlay backdrop
-      const backdrop = screen.getByText("New Task").closest("form")!.parentElement!;
-      fireEvent.click(backdrop);
-
+      // ModalShell listens for Escape key
+      fireEvent.keyDown(document, { key: "Escape" });
       expect(screen.queryByText("New Task")).not.toBeInTheDocument();
     });
 

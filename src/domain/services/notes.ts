@@ -1,5 +1,5 @@
-import type { Note, NoteSummary } from "../entities";
-import { toNoteSummary } from "../entities";
+import type { Note, NoteSummary, NoteType } from "../entities";
+import { toNoteSummary, NOTE_TYPES } from "../entities";
 import type { CreateNoteInput, UpdateNoteInput } from "../inputs";
 import type { INoteService, Paginated } from "../services";
 import { ServiceError } from "../errors";
@@ -16,7 +16,7 @@ export class NoteService implements INoteService {
     private eventBus: EventBus,
   ) {}
 
-  list(filter?: { id?: string; task_id?: string; title?: string; limit?: number; offset?: number }): Paginated<NoteSummary> {
+  list(filter?: { id?: string; task_id?: string; title?: string; note_type?: NoteType; limit?: number; offset?: number }): Paginated<NoteSummary> {
     return {
       data: this.noteRepo.findMany(filter).map(toNoteSummary),
       total: this.noteRepo.count(filter),
@@ -46,12 +46,16 @@ export class NoteService implements INoteService {
           throw new ServiceError(`home_task not found: ${input.task_id}`, 404);
         }
       }
+      if (input.note_type !== undefined && !(NOTE_TYPES as readonly string[]).includes(input.note_type)) {
+        throw new ServiceError(`invalid note_type: ${input.note_type}`, 400);
+      }
     }
 
     const rows = inputs.map((input) => ({
       task_id: input.task_id ?? null,
       title: input.title,
       content: input.content ?? null,
+      note_type: input.note_type ?? "manual",
     }));
 
     const notes = this.noteRepo.insertMany(rows);

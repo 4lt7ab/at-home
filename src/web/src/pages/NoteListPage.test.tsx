@@ -333,8 +333,10 @@ describe("NoteListPage", () => {
       fireEvent.click(screen.getByText("+ New Note"));
       expect(screen.getByText("New Note")).toBeInTheDocument();
 
-      const backdrop = screen.getByText("New Note").closest("form")!.parentElement!;
-      fireEvent.click(backdrop);
+      // ModalShell renders: Overlay(fixed) > div(flex center) > div(panel) > form
+      // Click the overlay backdrop (the outermost fixed-position div)
+      const overlay = screen.getByText("New Note").closest("form")!.parentElement!.parentElement!.parentElement!;
+      fireEvent.click(overlay);
 
       expect(screen.queryByPlaceholderText("Note title")).not.toBeInTheDocument();
     });

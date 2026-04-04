@@ -8,12 +8,14 @@ import {
   AREAS,
   EFFORT_LEVELS,
   RECURRENCE_TYPES,
+  NOTE_TYPES,
   type IHomeTaskService,
   type INoteService,
   type IScheduleService,
   type HomeTaskRepository,
   type NoteRepository,
   type ScheduleRepository,
+  type ActivityLogRepository,
   buildDailySummary,
 } from "../domain";
 import type { EventBus } from "../domain/events";
@@ -28,6 +30,7 @@ export interface McpServiceContext {
   homeTaskRepo: HomeTaskRepository;
   noteRepo: NoteRepository;
   scheduleRepo: ScheduleRepository;
+  activityLogRepo: ActivityLogRepository;
 }
 
 function handle<T>(fn: () => T) {
@@ -137,16 +140,17 @@ export function createMcpServer(ctx: McpServiceContext): McpServer {
   server.registerTool(
     "list_notes",
     {
-      description: "List note summaries with optional filters. Returns { data, total } where data contains note summaries (id, task_id, title, has_content, timestamps).",
+      description: "List note summaries with optional filters. Returns { data, total } where data contains note summaries (id, task_id, title, has_content, note_type, timestamps).",
       inputSchema: {
         task_id: z.string().max(26).optional(),
         title: z.string().max(255).optional(),
+        note_type: z.enum([...NOTE_TYPES]).optional(),
         limit: z.number().int().min(1).max(200).optional(),
         offset: z.number().int().min(0).optional(),
       },
     },
-    ({ task_id, title, limit, offset }) =>
-      handle(() => noteService.list({ task_id, title, limit, offset }))
+    ({ task_id, title, note_type, limit, offset }) =>
+      handle(() => noteService.list({ task_id, title, note_type, limit, offset }))
   );
 
   server.registerTool(
@@ -161,12 +165,13 @@ export function createMcpServer(ctx: McpServiceContext): McpServer {
   server.registerTool(
     "create_note",
     {
-      description: "Create notes. Pass an `items` array of objects, each with a required title. Optional content (markdown) and task_id to link to a home task.",
+      description: "Create notes. Pass an `items` array of objects, each with a required title. Optional content (markdown), task_id to link to a home task, and note_type (manual/completion, defaults to manual).",
       inputSchema: {
         items: z.array(z.object({
           title: z.string().max(255),
           content: z.string().max(50000).optional(),
           task_id: z.string().max(26).optional(),
+          note_type: z.enum([...NOTE_TYPES]).optional(),
         })),
       },
     },

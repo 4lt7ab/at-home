@@ -1,11 +1,12 @@
 import type { Database } from "bun:sqlite";
 import { ulid } from "ulid";
-import type { Note } from "../entities";
+import type { Note, NoteType } from "../entities";
 
 export interface NoteFilter {
   id?: string;
   task_id?: string;
   title?: string;
+  note_type?: NoteType;
   limit?: number;
   offset?: number;
 }
@@ -43,6 +44,10 @@ export class NoteRepository {
       conditions.push("title LIKE ? ESCAPE '\\'");
       params.push(`%${escapeLike(filter.title)}%`);
     }
+    if (filter?.note_type) {
+      conditions.push("note_type = ?");
+      params.push(filter.note_type);
+    }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")} ` : "";
     params.push(limit, offset);
@@ -78,6 +83,10 @@ export class NoteRepository {
       conditions.push("title LIKE ? ESCAPE '\\'");
       params.push(`%${escapeLike(filter.title)}%`);
     }
+    if (filter?.note_type) {
+      conditions.push("note_type = ?");
+      params.push(filter.note_type);
+    }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")} ` : "";
 
@@ -88,9 +97,9 @@ export class NoteRepository {
     ).total;
   }
 
-  insertMany(rows: { task_id?: string | null; title: string; content?: string | null }[]): Note[] {
+  insertMany(rows: { task_id?: string | null; title: string; content?: string | null; note_type?: string }[]): Note[] {
     const stmt = this.db.query(
-      "INSERT INTO notes (id, task_id, title, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
+      "INSERT INTO notes (id, task_id, title, content, note_type, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
     );
     const now = new Date().toISOString();
     const ids: string[] = [];
@@ -98,7 +107,7 @@ export class NoteRepository {
     for (const row of rows) {
       const id = ulid();
       ids.push(id);
-      stmt.run(id, row.task_id ?? null, row.title, row.content ?? null, now, now);
+      stmt.run(id, row.task_id ?? null, row.title, row.content ?? null, row.note_type ?? "manual", now, now);
     }
 
     return ids.map((id) => this.findById(id)!);

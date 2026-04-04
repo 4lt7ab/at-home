@@ -89,6 +89,7 @@ export class Server {
       homeTaskRepo: ctx.homeTaskRepo,
       noteRepo: ctx.noteRepo,
       scheduleRepo: ctx.scheduleRepo,
+      activityLogRepo: ctx.activityLogRepo,
     });
     app.all("/mcp", (c) => handleMcp(c.req.raw));
 

@@ -423,7 +423,7 @@ Key details:
 - **Data volume**: Mount `/app/data` to persist the SQLite database across container restarts
 - **Default environment**: `HOME_HOST=0.0.0.0`, `HOME_PORT=3100`, `SQLITE_PATH=/app/data/sqlite.db`
 - **Non-root**: The container runs as the `bun` user (not root)
-- **Health check**: `GET /api/health` returns `{"status":"ok"}` when the database is connected
+- **Health check**: Docker is configured with a healthcheck that polls `GET /api/health` using `bun -e` with `fetch` (no `curl` dependency required). The container reports healthy after a 10-second start period, checking every 30 seconds with a 10-second timeout and 3 retries
 
 To override environment variables:
 

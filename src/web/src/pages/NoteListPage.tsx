@@ -3,188 +3,12 @@ import type { NoteSummary, HomeTaskSummary } from "@domain/entities";
 import { useNotes } from "../hooks";
 import type { ViewMode } from "../hooks";
 import { createNotes, fetchTasks } from "../api";
-
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
-
-const s = {
-  page: {
-    width: "100%",
-    maxWidth: 720,
-    margin: "0 auto",
-    padding: "24px 16px",
-  } as React.CSSProperties,
-
-  header: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 16,
-  } as React.CSSProperties,
-
-  title: {
-    fontSize: 20,
-    fontWeight: 600,
-  } as React.CSSProperties,
-
-  addBtn: {
-    fontSize: 13,
-    padding: "6px 14px",
-    border: "1px solid var(--color-accent)",
-    borderRadius: 6,
-    background: "var(--color-accent)",
-    color: "var(--color-btn-text)",
-    cursor: "pointer",
-  } as React.CSSProperties,
-
-  filterBar: {
-    display: "flex",
-    gap: 8,
-    marginBottom: 16,
-    flexWrap: "wrap" as const,
-  } as React.CSSProperties,
-
-  filterBtn: (active: boolean) => ({
-    fontSize: 13,
-    padding: "4px 12px",
-    border: "1px solid " + (active ? "var(--color-accent)" : "var(--color-input-border)"),
-    borderRadius: 4,
-    background: active ? "var(--color-accent-bg)" : "var(--color-surface)",
-    color: active ? "var(--color-accent)" : "var(--color-text-secondary)",
-    cursor: "pointer",
-  }),
-
-  card: {
-    padding: "12px 14px",
-    marginBottom: 8,
-    borderRadius: 6,
-    background: "var(--color-surface)",
-    border: "1px solid var(--color-border-light)",
-  } as React.CSSProperties,
-
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: 500,
-    color: "var(--color-text)",
-  } as React.CSSProperties,
-
-  meta: {
-    fontSize: 12,
-    color: "var(--color-text-muted)",
-    marginTop: 4,
-  } as React.CSSProperties,
-
-  badge: (color: string, bg: string) => ({
-    display: "inline-block",
-    fontSize: 11,
-    fontWeight: 500,
-    padding: "2px 6px",
-    borderRadius: 4,
-    color,
-    background: bg,
-    marginRight: 6,
-  }),
-
-  overlay: {
-    position: "fixed" as const,
-    inset: 0,
-    background: "var(--color-overlay)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 100,
-  } as React.CSSProperties,
-
-  modal: {
-    background: "var(--color-surface)",
-    borderRadius: 8,
-    padding: 24,
-    width: "90%",
-    maxWidth: 400,
-    boxShadow: "0 4px 24px var(--color-shadow)",
-    color: "var(--color-text)",
-  } as React.CSSProperties,
-
-  input: {
-    width: "100%",
-    padding: "8px 10px",
-    fontSize: 14,
-    border: "1px solid var(--color-input-border)",
-    borderRadius: 4,
-    marginBottom: 12,
-    fontFamily: "inherit",
-    background: "var(--color-surface)",
-    color: "var(--color-text)",
-  } as React.CSSProperties,
-
-  textarea: {
-    width: "100%",
-    padding: "8px 10px",
-    fontSize: 14,
-    border: "1px solid var(--color-input-border)",
-    borderRadius: 4,
-    marginBottom: 12,
-    fontFamily: "inherit",
-    resize: "vertical" as const,
-    background: "var(--color-surface)",
-    color: "var(--color-text)",
-  } as React.CSSProperties,
-
-  select: {
-    width: "100%",
-    fontSize: 13,
-    padding: "4px 8px",
-    border: "1px solid var(--color-input-border)",
-    borderRadius: 4,
-    background: "var(--color-surface)",
-    color: "var(--color-text)",
-    marginBottom: 12,
-  } as React.CSSProperties,
-
-  formActions: {
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: 8,
-    marginTop: 8,
-  } as React.CSSProperties,
-
-  cancelBtn: {
-    fontSize: 13,
-    padding: "6px 14px",
-    border: "1px solid var(--color-input-border)",
-    borderRadius: 6,
-    background: "var(--color-surface)",
-    color: "var(--color-text)",
-    cursor: "pointer",
-  } as React.CSSProperties,
-
-  empty: {
-    textAlign: "center" as const,
-    padding: "32px 16px",
-    color: "var(--color-text-faint)",
-  } as React.CSSProperties,
-
-  galleryGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-    gap: 12,
-  } as React.CSSProperties,
-
-  viewToggle: {
-    fontSize: 13,
-    padding: "6px 10px",
-    border: "1px solid var(--color-input-border)",
-    borderRadius: 6,
-    background: "var(--color-surface)",
-    color: "var(--color-text-secondary)",
-    cursor: "pointer",
-    marginRight: 8,
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 4,
-  } as React.CSSProperties,
-};
+import { useTheme } from "../components/theme";
+import { Button, Input, Textarea, Select, Badge } from "../components/atoms";
+import { Stack, EmptyState } from "../components/molecules";
+import { ModalShell } from "../components/organisms";
+import { ListPageLayout } from "../components/templates";
+import { ContentCard } from "../components/ContentCard";
 
 // ---------------------------------------------------------------------------
 // CreateNoteOverlay
@@ -195,6 +19,7 @@ function CreateNoteOverlay({ tasks, onClose, onCreated }: {
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { theme } = useTheme();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [taskId, setTaskId] = useState<string>("");
@@ -222,38 +47,49 @@ function CreateNoteOverlay({ tasks, onClose, onCreated }: {
   }
 
   return (
-    <div style={s.overlay} onClick={onClose}>
-      <form style={s.modal} onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
-        <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>New Note</h3>
-        <input
-          style={s.input}
-          placeholder="Note title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          autoFocus
-        />
-        <textarea
-          style={s.textarea}
-          rows={4}
-          placeholder="Content (optional)"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-        />
-        <select style={s.select} value={taskId} onChange={(e) => setTaskId(e.target.value)}>
-          <option value="">Standalone (no task)</option>
-          {tasks.map((t) => (
-            <option key={t.id} value={t.id}>{t.title}</option>
-          ))}
-        </select>
-        {error && <div style={{ color: "var(--color-danger)", fontSize: 12, marginTop: 4, marginBottom: 4 }}>{error}</div>}
-        <div style={s.formActions}>
-          <button type="button" style={s.cancelBtn} onClick={onClose}>Cancel</button>
-          <button type="submit" style={{ ...s.addBtn, opacity: busy ? 0.5 : 1 }} disabled={busy}>
-            {busy ? "Creating..." : "Create"}
-          </button>
-        </div>
+    <ModalShell onClose={onClose} maxWidth={400}>
+      <form onSubmit={handleSubmit}>
+        <h3 style={{
+          fontSize: theme.font.size.md,
+          fontWeight: 600,
+          marginBottom: theme.spacing.lg,
+          color: theme.color.text,
+          fontFamily: theme.font.body,
+        }}>New Note</h3>
+        <Stack direction="column" gap="md">
+          <Input
+            placeholder="Note title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            autoFocus
+          />
+          <Textarea
+            rows={4}
+            placeholder="Content (optional)"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+          />
+          <Select value={taskId} onChange={(e) => setTaskId(e.target.value)}>
+            <option value="">Standalone (no task)</option>
+            {tasks.map((t) => (
+              <option key={t.id} value={t.id}>{t.title}</option>
+            ))}
+          </Select>
+          {error && (
+            <div style={{
+              color: theme.color.danger,
+              fontSize: theme.font.size.xs,
+            }}>{error}</div>
+          )}
+          <Stack direction="row" gap="sm" justify="flex-end" style={{ marginTop: theme.spacing.xs }}>
+            <Button variant="ghost" type="button" onClick={onClose}>Cancel</Button>
+            <Button variant="primary" type="submit" loading={busy} disabled={busy}>
+              {busy ? "Creating..." : "Create"}
+            </Button>
+          </Stack>
+        </Stack>
       </form>
-    </div>
+    </ModalShell>
   );
 }
 
@@ -262,23 +98,41 @@ function CreateNoteOverlay({ tasks, onClose, onCreated }: {
 // ---------------------------------------------------------------------------
 
 function NoteCard({ note, taskName, gallery }: { note: NoteSummary; taskName: string | null; gallery?: boolean }) {
+  const { theme } = useTheme();
+
   return (
-    <div style={gallery ? { ...s.card, marginBottom: 0 } : s.card}>
-      <div style={s.cardTitle}>{note.title}</div>
-      <div style={{ marginTop: 4 }}>
+    <ContentCard
+      variant={note.note_type === "completion" ? "completion-note" : "note"}
+      compact={gallery}
+    >
+      <div style={{
+        fontSize: theme.font.size.sm,
+        fontWeight: 500,
+        color: theme.color.text,
+        fontFamily: theme.font.body,
+      }}>{note.title}</div>
+      <div style={{ marginTop: theme.spacing.xs }}>
+        {note.note_type === "completion" && (
+          <Badge variant="completion">completion</Badge>
+        )}
         {taskName ? (
-          <span style={s.badge("var(--color-area)", "var(--color-area-bg)")}>{taskName}</span>
+          <Badge variant="area">{taskName}</Badge>
         ) : (
-          <span style={s.badge("var(--color-text-muted)", "var(--color-muted-bg)")}>standalone</span>
+          <Badge variant="standalone">standalone</Badge>
         )}
         {note.has_content && (
-          <span style={s.badge("var(--color-success)", "var(--color-success-bg)")}>has content</span>
+          <Badge variant="content">has content</Badge>
         )}
       </div>
-      <div style={s.meta}>
+      <div style={{
+        fontSize: theme.font.size.xs,
+        color: theme.color.textMuted,
+        marginTop: theme.spacing.xs,
+        fontFamily: theme.font.body,
+      }}>
         Created: {new Date(note.created_at).toLocaleDateString()}
       </div>
-    </div>
+    </ContentCard>
   );
 }
 
@@ -286,12 +140,13 @@ function NoteCard({ note, taskName, gallery }: { note: NoteSummary; taskName: st
 // NoteListPage
 // ---------------------------------------------------------------------------
 
-type FilterMode = "all" | "linked" | "standalone";
+type FilterMode = "all" | "linked" | "standalone" | "manual" | "completion";
 
 export function NoteListPage({ viewMode, onToggleViewMode }: {
   viewMode: ViewMode;
   onToggleViewMode: () => void;
 }) {
+  const { theme } = useTheme();
   const [filter, setFilter] = useState<FilterMode>("all");
   const [showCreate, setShowCreate] = useState(false);
   const [allTasks, setAllTasks] = useState<HomeTaskSummary[]>([]);
@@ -322,49 +177,69 @@ export function NoteListPage({ viewMode, onToggleViewMode }: {
   const filtered = notes.filter((n) => {
     if (filter === "linked") return n.task_id !== null;
     if (filter === "standalone") return n.task_id === null;
+    if (filter === "manual") return n.note_type === "manual";
+    if (filter === "completion") return n.note_type === "completion";
     return true;
   });
 
   return (
-    <div style={s.page}>
-      <div style={s.header}>
-        <h1 style={s.title}>Notes</h1>
-        <div style={{ display: "flex", alignItems: "center" }}>
-          <button
-            style={s.viewToggle}
+    <ListPageLayout>
+      <Stack direction="row" align="center" justify="space-between" style={{ marginBottom: theme.spacing.lg }}>
+        <h1 style={{
+          fontSize: theme.font.size.lg,
+          fontWeight: 600,
+          color: theme.color.text,
+          fontFamily: theme.font.headline,
+        }}>Notes</h1>
+        <Stack direction="row" align="center" gap="sm">
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onToggleViewMode}
             title={`Toggle view (Shift+G) — ${viewMode === "list" ? "List" : "Gallery"}`}
           >
             <span>{viewMode === "list" ? "\u2630" : "\u2637"}</span>
             <span>{viewMode === "list" ? "List" : "Grid"}</span>
-          </button>
-          <button style={s.addBtn} onClick={() => setShowCreate(true)}>+ New Note</button>
-        </div>
-      </div>
+          </Button>
+          <Button variant="primary" size="sm" onClick={() => setShowCreate(true)}>+ New Note</Button>
+        </Stack>
+      </Stack>
 
-      <div style={s.filterBar}>
-        {(["all", "linked", "standalone"] as FilterMode[]).map((f) => (
-          <button
+      <Stack direction="row" gap="sm" wrap style={{ marginBottom: theme.spacing.lg }}>
+        {(["all", "manual", "completion", "linked", "standalone"] as FilterMode[]).map((f) => (
+          <Button
             key={f}
-            style={s.filterBtn(filter === f)}
+            variant={filter === f ? "primary" : "ghost"}
+            size="sm"
             onClick={() => setFilter(f)}
           >
             {f.charAt(0).toUpperCase() + f.slice(1)}
-          </button>
+          </Button>
         ))}
-      </div>
+      </Stack>
 
-      {error && <div style={{ color: "var(--color-danger)", marginBottom: 12 }}>{error}</div>}
+      {error && (
+        <div style={{
+          color: theme.color.danger,
+          marginBottom: theme.spacing.md,
+          fontSize: theme.font.size.sm,
+          fontFamily: theme.font.body,
+        }}>{error}</div>
+      )}
 
       {loading && notes.length === 0 && (
-        <div style={s.empty}>Loading notes...</div>
+        <EmptyState icon="hourglass_empty" message="Loading notes..." />
       )}
 
       {!loading && filtered.length === 0 && (
-        <div style={s.empty}>No notes found.</div>
+        <EmptyState icon="note" message="No notes found." />
       )}
 
-      <div style={viewMode === "gallery" ? s.galleryGrid : undefined}>
+      <div style={viewMode === "gallery" ? {
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+        gap: theme.spacing.md,
+      } : undefined}>
         {filtered.map((note) => (
           <NoteCard
             key={note.id}
@@ -382,6 +257,6 @@ export function NoteListPage({ viewMode, onToggleViewMode }: {
           onCreated={refetch}
         />
       )}
-    </div>
+    </ListPageLayout>
   );
 }

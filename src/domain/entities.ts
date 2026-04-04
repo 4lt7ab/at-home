@@ -6,6 +6,7 @@ export const EFFORT_LEVELS = ['trivial', 'low', 'medium', 'high'] as const;
 export const RECURRENCE_TYPES = ['once', 'daily', 'weekly', 'monthly', 'seasonal', 'custom'] as const;
 export const SEASONS = ['spring', 'summer', 'fall', 'winter'] as const;
 export const ENTITY_TYPES = ['home_task', 'note', 'schedule'] as const;
+export const NOTE_TYPES = ['manual', 'completion'] as const;
 export const ACTIVITY_ACTIONS = ['created', 'updated', 'deleted', 'completed'] as const;
 
 export type TaskStatus = typeof TASK_STATUSES[number];
@@ -14,6 +15,7 @@ export type EffortLevel = typeof EFFORT_LEVELS[number];
 export type RecurrenceType = typeof RECURRENCE_TYPES[number];
 export type Season = typeof SEASONS[number];
 export type EntityType = typeof ENTITY_TYPES[number];
+export type NoteType = typeof NOTE_TYPES[number];
 export type ActivityAction = typeof ACTIVITY_ACTIONS[number];
 
 // -- Entity interfaces ------------------------------------------------------
@@ -34,6 +36,7 @@ export interface Note {
   task_id: string | null;
   title: string;
   content: string | null;
+  note_type: NoteType;
   created_at: string;
   updated_at: string;
 }
@@ -78,6 +81,7 @@ export interface NoteSummary {
   task_id: string | null;
   title: string;
   has_content: boolean;
+  note_type: NoteType;
   created_at: string;
   updated_at: string;
 }
@@ -107,6 +111,7 @@ export function toNoteSummary(n: Note): NoteSummary {
   return {
     id: n.id, task_id: n.task_id, title: n.title,
     has_content: n.content != null,
+    note_type: n.note_type,
     created_at: n.created_at, updated_at: n.updated_at,
   };
 }

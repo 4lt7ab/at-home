@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import type { HomeTask, Note, Schedule } from "../entities";
 import type { IHomeTaskService, INoteService, IScheduleService } from "../services";
+import type { ActivityLogRepository } from "../repositories/activity-log";
 import type { EventBus } from "../events";
 import { ServiceError } from "../errors";
 
@@ -21,6 +22,7 @@ export interface CompleteTaskServices {
   homeTaskService: IHomeTaskService;
   noteService: INoteService;
   scheduleService: IScheduleService;
+  activityLogRepo: ActivityLogRepository;
   eventBus: EventBus;
 }
 
@@ -36,7 +38,7 @@ export function completeTask(
   services: CompleteTaskServices,
   input: CompleteTaskInput,
 ): CompleteTaskResult {
-  const { homeTaskService, noteService, scheduleService, eventBus } = services;
+  const { homeTaskService, noteService, scheduleService, activityLogRepo, eventBus } = services;
   const { task_id, note } = input;
 
   const run = db.transaction(() => {
@@ -92,16 +94,31 @@ export function completeTask(
           title: `Completed: ${task.title}`,
           content: note,
           task_id,
+          note_type: "completion",
         },
       ]);
       noteCreated = created;
     }
 
+    // 4. Log a completion activity entry on the home_task entity,
+    //    including note_id so the frontend can correlate timeline entries
+    const completedAt = new Date().toISOString();
+    activityLogRepo.insert({
+      entity_type: "home_task",
+      entity_id: task_id,
+      action: "completed",
+      summary: JSON.stringify({
+        next_due: nextDue,
+        last_completed: updatedSchedule?.last_completed ?? completedAt.slice(0, 10),
+        note_id: noteCreated?.id ?? null,
+      }),
+    });
+
     return {
       task: updatedTask,
       schedule: updatedSchedule,
       next_due: nextDue,
-      completed_at: new Date().toISOString(),
+      completed_at: completedAt,
       note_created: noteCreated,
     };
   });
