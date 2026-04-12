@@ -1,5 +1,5 @@
-import type { Database } from "bun:sqlite";
-import { createDatabase } from "./db/connection";
+import type { Sql } from "./db/connection";
+import { createSql } from "./db/connection";
 import { runMigrations } from "./db/migrator";
 import { HomeTaskRepository } from "./repositories/home-tasks";
 import { NoteRepository } from "./repositories/notes";
@@ -11,7 +11,7 @@ import { ScheduleService } from "./services/schedules";
 import { EventBus } from "./events";
 
 export interface AppContext {
-  db: Database;
+  sql: Sql;
   eventBus: EventBus;
   homeTaskRepo: HomeTaskRepository;
   noteRepo: NoteRepository;
@@ -22,14 +22,14 @@ export interface AppContext {
   scheduleService: ScheduleService;
 }
 
-export async function bootstrap(dbPath?: string): Promise<AppContext> {
-  const db = createDatabase(dbPath);
-  await runMigrations(db);
+export async function bootstrap(databaseUrl?: string): Promise<AppContext> {
+  const sql = createSql(databaseUrl);
+  await runMigrations(sql);
 
-  const homeTaskRepo = new HomeTaskRepository(db);
-  const noteRepo = new NoteRepository(db);
-  const scheduleRepo = new ScheduleRepository(db);
-  const activityLogRepo = new ActivityLogRepository(db);
+  const homeTaskRepo = new HomeTaskRepository(sql);
+  const noteRepo = new NoteRepository(sql);
+  const scheduleRepo = new ScheduleRepository(sql);
+  const activityLogRepo = new ActivityLogRepository(sql);
 
   const eventBus = new EventBus();
 
@@ -37,5 +37,5 @@ export async function bootstrap(dbPath?: string): Promise<AppContext> {
   const noteService = new NoteService(noteRepo, homeTaskRepo, activityLogRepo, eventBus);
   const scheduleService = new ScheduleService(scheduleRepo, homeTaskRepo, activityLogRepo, eventBus);
 
-  return { db, eventBus, homeTaskRepo, noteRepo, scheduleRepo, activityLogRepo, homeTaskService, noteService, scheduleService };
+  return { sql, eventBus, homeTaskRepo, noteRepo, scheduleRepo, activityLogRepo, homeTaskService, noteService, scheduleService };
 }

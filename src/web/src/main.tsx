@@ -1,17 +1,12 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { ThemeProvider } from "@4lt7ab/ui/core";
 import { App } from "./App";
-import { ThemeProvider } from "./components/theme";
-import { ToastProvider } from "./components/ToastContext";
-import { AnimationStyles } from "./components/atoms/AnimationStyles";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <ThemeProvider>
-      <AnimationStyles />
-      <ToastProvider>
-        <App />
-      </ToastProvider>
+    <ThemeProvider defaultTheme="synthwave" applyPageStyles>
+      <App />
     </ThemeProvider>
   </StrictMode>,
 );

@@ -1,4 +1,4 @@
-import type { Database } from "bun:sqlite";
+import type { Sql } from "../db/connection";
 import { ulid } from "ulid";
 import type { ActivityLog, EntityType, ActivityAction } from "../entities";
 
@@ -10,66 +10,53 @@ export interface InsertActivityLog {
 }
 
 export class ActivityLogRepository {
-  constructor(private db: Database) {}
+  constructor(private sql: Sql) {}
 
-  insert(row: InsertActivityLog): ActivityLog {
+  async insert(row: InsertActivityLog): Promise<ActivityLog> {
     const id = ulid();
     const now = new Date().toISOString();
-    this.db
-      .query(
-        "INSERT INTO activity_log (id, entity_type, entity_id, action, summary, created_at) VALUES (?, ?, ?, ?, ?, ?)"
-      )
-      .run(id, row.entity_type, row.entity_id, row.action, row.summary, now);
-    return this.db.query("SELECT * FROM activity_log WHERE id = ?").get(id) as ActivityLog;
+    const [inserted] = await this.sql<ActivityLog[]>`
+      INSERT INTO activity_log (id, entity_type, entity_id, action, summary, created_at)
+      VALUES (${id}, ${row.entity_type}, ${row.entity_id}, ${row.action}, ${row.summary}, ${now})
+      RETURNING *
+    `;
+    return inserted;
   }
 
-  findMany(filter?: {
+  async findMany(filter?: {
     entity_type?: string;
     entity_id?: string;
     limit?: number;
     offset?: number;
-  }): ActivityLog[] {
+  }): Promise<ActivityLog[]> {
     const limit = filter?.limit ?? 50;
     const offset = filter?.offset ?? 0;
-    const conditions: string[] = [];
-    const params: (string | number)[] = [];
+    const parts: any[] = [];
 
-    if (filter?.entity_type) {
-      conditions.push("entity_type = ?");
-      params.push(filter.entity_type);
-    }
-    if (filter?.entity_id) {
-      conditions.push("entity_id = ?");
-      params.push(filter.entity_id);
-    }
+    if (filter?.entity_type) parts.push(this.sql`entity_type = ${filter.entity_type}`);
+    if (filter?.entity_id) parts.push(this.sql`entity_id = ${filter.entity_id}`);
 
-    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")} ` : "";
-    params.push(limit, offset);
+    const where = parts.length > 0
+      ? this.sql`WHERE ${parts.reduce((a, b) => this.sql`${a} AND ${b}`)}`
+      : this.sql``;
 
-    return this.db
-      .query(`SELECT * FROM activity_log ${where}ORDER BY created_at DESC LIMIT ? OFFSET ?`)
-      .all(...params) as ActivityLog[];
+    return await this.sql<ActivityLog[]>`
+      SELECT * FROM activity_log ${where}
+      ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}
+    `;
   }
 
-  count(filter?: { entity_type?: string; entity_id?: string }): number {
-    const conditions: string[] = [];
-    const params: string[] = [];
+  async count(filter?: { entity_type?: string; entity_id?: string }): Promise<number> {
+    const parts: any[] = [];
 
-    if (filter?.entity_type) {
-      conditions.push("entity_type = ?");
-      params.push(filter.entity_type);
-    }
-    if (filter?.entity_id) {
-      conditions.push("entity_id = ?");
-      params.push(filter.entity_id);
-    }
+    if (filter?.entity_type) parts.push(this.sql`entity_type = ${filter.entity_type}`);
+    if (filter?.entity_id) parts.push(this.sql`entity_id = ${filter.entity_id}`);
 
-    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")} ` : "";
+    const where = parts.length > 0
+      ? this.sql`WHERE ${parts.reduce((a, b) => this.sql`${a} AND ${b}`)}`
+      : this.sql``;
 
-    return (
-      this.db
-        .query(`SELECT COUNT(*) as total FROM activity_log ${where}`)
-        .get(...params) as { total: number }
-    ).total;
+    const [row] = await this.sql<{ total: number }[]>`SELECT COUNT(*)::int as total FROM activity_log ${where}`;
+    return row.total;
   }
 }

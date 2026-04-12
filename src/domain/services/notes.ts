@@ -16,20 +16,21 @@ export class NoteService implements INoteService {
     private eventBus: EventBus,
   ) {}
 
-  list(filter?: { id?: string; task_id?: string; title?: string; note_type?: NoteType; limit?: number; offset?: number }): Paginated<NoteSummary> {
-    return {
-      data: this.noteRepo.findMany(filter).map(toNoteSummary),
-      total: this.noteRepo.count(filter),
-    };
+  async list(filter?: { id?: string; task_id?: string; title?: string; note_type?: NoteType; limit?: number; offset?: number }): Promise<Paginated<NoteSummary>> {
+    const [data, total] = await Promise.all([
+      this.noteRepo.findMany(filter),
+      this.noteRepo.count(filter),
+    ]);
+    return { data: data.map(toNoteSummary), total };
   }
 
-  get(id: string): Note {
-    const note = this.noteRepo.findById(id);
+  async get(id: string): Promise<Note> {
+    const note = await this.noteRepo.findById(id);
     if (!note) throw new ServiceError("note not found", 404);
     return note;
   }
 
-  create(inputs: CreateNoteInput[]): Note[] {
+  async create(inputs: CreateNoteInput[]): Promise<Note[]> {
     for (const input of inputs) {
       if (!input.title?.trim()) {
         throw new ServiceError("title is required", 400);
@@ -41,7 +42,7 @@ export class NoteService implements INoteService {
         throw new ServiceError("content must be 50000 characters or fewer", 400);
       }
       if (input.task_id !== undefined && input.task_id !== null) {
-        const task = this.homeTaskRepo.findById(input.task_id);
+        const task = await this.homeTaskRepo.findById(input.task_id);
         if (!task) {
           throw new ServiceError(`home_task not found: ${input.task_id}`, 404);
         }
@@ -58,9 +59,9 @@ export class NoteService implements INoteService {
       note_type: input.note_type ?? "manual",
     }));
 
-    const notes = this.noteRepo.insertMany(rows);
+    const notes = await this.noteRepo.insertMany(rows);
     for (const n of notes) {
-      this.activityLog.insert({
+      await this.activityLog.insert({
         entity_type: "note",
         entity_id: n.id,
         action: "created",
@@ -71,9 +72,9 @@ export class NoteService implements INoteService {
     return notes;
   }
 
-  update(inputs: UpdateNoteInput[]): Note[] {
+  async update(inputs: UpdateNoteInput[]): Promise<Note[]> {
     for (const input of inputs) {
-      const existing = this.noteRepo.findById(input.id);
+      const existing = await this.noteRepo.findById(input.id);
       if (!existing) throw new ServiceError(`note not found: ${input.id}`, 404);
 
       if (input.title !== undefined && !input.title.trim()) {
@@ -86,18 +87,17 @@ export class NoteService implements INoteService {
         throw new ServiceError("content must be 50000 characters or fewer", 400);
       }
       if (input.task_id !== undefined && input.task_id !== null) {
-        const task = this.homeTaskRepo.findById(input.task_id);
+        const task = await this.homeTaskRepo.findById(input.task_id);
         if (!task) {
           throw new ServiceError(`home_task not found: ${input.task_id}`, 404);
         }
       }
-      // task_id === null is allowed (unlinking from task)
     }
 
-    const notes = this.noteRepo.updateMany(inputs);
+    const notes = await this.noteRepo.updateMany(inputs);
     for (const n of notes) {
       const fields = Object.keys(inputs.find((i) => i.id === n.id) ?? {}).filter((k) => k !== "id");
-      this.activityLog.insert({
+      await this.activityLog.insert({
         entity_type: "note",
         entity_id: n.id,
         action: "updated",
@@ -108,10 +108,10 @@ export class NoteService implements INoteService {
     return notes;
   }
 
-  remove(ids: string[]): number {
-    const deleted = this.noteRepo.deleteMany(ids);
+  async remove(ids: string[]): Promise<number> {
+    const deleted = await this.noteRepo.deleteMany(ids);
     for (const id of ids) {
-      this.activityLog.insert({
+      await this.activityLog.insert({
         entity_type: "note",
         entity_id: id,
         action: "deleted",

@@ -1,272 +1,225 @@
 import { useState } from "react";
+import { semantic as t, Card, Badge, Button, Stack, Skeleton, EmptyState, Input } from "@4lt7ab/ui/ui";
 import type { DailySummaryItem } from "@domain/summary";
 import { useDailySummary } from "../hooks";
 import { completeTask } from "../api";
-import { useTheme } from "../components/theme";
-import { StatusDot, Badge, Button, Textarea } from "../components";
-import { ContentCard } from "../components/ContentCard";
-import { EmptyState } from "../components/molecules/EmptyState";
-import { TaskDetailOverlay } from "./TaskDetailOverlay";
 
 // ---------------------------------------------------------------------------
-// MarkDoneButton
+// Props
 // ---------------------------------------------------------------------------
 
-function MarkDoneButton({ taskId, onComplete }: { taskId: string; onComplete: () => void }) {
-  const { theme } = useTheme();
-  const [busy, setBusy] = useState(false);
+interface Props {
+  onNavigate: (path: string) => void;
+}
+
+// ---------------------------------------------------------------------------
+// SectionHeading
+// ---------------------------------------------------------------------------
+
+function SectionHeading({ children, count }: { children: React.ReactNode; count: number }): React.JSX.Element {
+  return (
+    <div style={{
+      display: "flex",
+      alignItems: "center",
+      gap: t.spaceSm,
+      padding: `${t.spaceSm} 0`,
+    }}>
+      <span style={{ fontSize: t.fontSizeLg, fontWeight: 600 }}>{children}</span>
+      <Badge variant="secondary">{count}</Badge>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// TaskRow
+// ---------------------------------------------------------------------------
+
+function TaskRow({ item, onNavigate }: { item: DailySummaryItem; onNavigate: (path: string) => void }): React.JSX.Element {
+  const [completing, setCompleting] = useState(false);
+  const [noteText, setNoteText] = useState("");
   const [showNote, setShowNote] = useState(false);
-  const [note, setNote] = useState("");
-  const [error, setError] = useState<string | null>(null);
 
-  async function handleDone() {
-    setError(null);
-    setBusy(true);
+  async function handleComplete(): Promise<void> {
+    setCompleting(true);
     try {
-      await completeTask(taskId, note || undefined);
-      setNote("");
+      await completeTask(item.task.id, noteText || undefined);
+      setNoteText("");
       setShowNote(false);
-      onComplete();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "An unexpected error occurred");
     } finally {
-      setBusy(false);
+      setCompleting(false);
     }
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-      <Button
-        variant="ghost"
-        size="sm"
-        disabled={busy}
-        onClick={handleDone}
-        style={{ color: theme.color.success, borderColor: theme.color.success, whiteSpace: "nowrap", flexShrink: 0 }}
-      >
-        {busy ? "..." : "Done"}
-      </Button>
-      {error && <div style={{ color: theme.color.danger, fontSize: theme.font.size.xs, marginTop: 4, textAlign: "right" }}>{error}</div>}
-      {!showNote && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowNote(true)}
-          style={{ fontSize: theme.font.size.xs, padding: 0, border: "none", textDecoration: "underline", marginTop: 4 }}
-        >
-          + note
-        </Button>
-      )}
-      {showNote && (
-        <Textarea
-          rows={2}
-          placeholder="Completion note..."
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          autoFocus
-          style={{ maxWidth: 200, marginTop: 8 }}
-        />
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// SummaryItem
-// ---------------------------------------------------------------------------
-
-function SummaryItem({ item, variant, onComplete, onItemClick }: {
-  item: DailySummaryItem;
-  variant: "danger" | "primary" | "muted";
-  onComplete: () => void;
-  onItemClick: (taskId: string) => void;
-}) {
-  const { theme } = useTheme();
-  const [expanded, setExpanded] = useState(false);
-
-  const statusColor = variant === "danger"
-    ? theme.color.danger
-    : variant === "primary"
-      ? theme.color.success
-      : theme.color.textMuted;
-
-  return (
-    <div style={{ padding: "12px 0", borderBottom: `1px solid ${theme.color.borderSubtle}` }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-        <div
-          style={{ flex: 1, minWidth: 0, cursor: "pointer" }}
-          role="button"
-          tabIndex={0}
-          onClick={() => onItemClick(item.task.id)}
-          onKeyDown={(e) => e.key === "Enter" && onItemClick(item.task.id)}
-        >
-          <div style={{ fontSize: theme.font.size.md, fontWeight: 500, color: theme.color.text, display: "flex", alignItems: "center", gap: 6 }}>
-            <StatusDot status={item.task.status} color={statusColor} />
-            {item.task.title}
-          </div>
-          <div style={{ marginTop: 4 }}>
-            {item.task.area && (
-              <Badge variant="area">{item.task.area.replace(/_/g, " ")}</Badge>
-            )}
-            {item.recurrence_label && (
-              <Badge variant="recurrence">{item.recurrence_label}</Badge>
-            )}
-            {variant === "danger" && item.days_overdue > 0 && (
-              <Badge variant="overdue" style={{ fontWeight: 600 }}>{item.days_overdue}d overdue</Badge>
+    <Card>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: t.spaceMd }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: t.spaceSm, flexWrap: "wrap" }}>
+            <button
+              onClick={() => onNavigate(`/tasks/${item.task.id}`)}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: 0,
+                fontSize: t.fontSizeMd,
+                fontWeight: 600,
+                fontFamily: t.fontSans,
+                color: t.colorText,
+                textAlign: "left",
+              }}
+            >
+              {item.task.title}
+            </button>
+            {item.task.area && <Badge variant="secondary">{formatArea(item.task.area)}</Badge>}
+            <Badge variant="secondary">{item.recurrence_label}</Badge>
+            {item.days_overdue > 0 && (
+              <Badge variant="destructive">
+                {item.days_overdue}d overdue
+              </Badge>
             )}
           </div>
-          {item.schedule.next_due && variant === "muted" && (
-            <div style={{ fontSize: theme.font.size.xs, color: theme.color.textMuted, marginTop: 4 }}>Due: {item.schedule.next_due}</div>
+          {item.schedule.next_due && (
+            <div style={{ fontSize: t.fontSizeXs, color: t.colorTextMuted, marginTop: t.spaceXs }}>
+              Due: {item.schedule.next_due}
+            </div>
           )}
-          {(() => {
-            const manualNotes = item.notes.filter((n) => n.note_type !== "completion");
-            return manualNotes.length > 0 ? (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-                  style={{ fontSize: theme.font.size.xs, padding: 0, border: "none", textDecoration: "underline", marginTop: 4 }}
-                >
-                  {expanded ? "hide" : `${manualNotes.length} note${manualNotes.length > 1 ? "s" : ""}`}
-                </Button>
-                {expanded && manualNotes.map((n) => (
-                  <ContentCard
-                    key={n.id}
-                    variant="note"
-                    style={{ marginTop: 4, padding: "6px 10px", fontSize: 12 }}
-                  >
-                    {n.title}
-                  </ContentCard>
-                ))}
-              </>
-            ) : null;
-          })()}
         </div>
-        <MarkDoneButton taskId={item.task.id} onComplete={onComplete} />
+
+        <div style={{ display: "flex", gap: t.spaceXs, flexShrink: 0 }}>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setShowNote(!showNote)}
+          >
+            Note
+          </Button>
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={handleComplete}
+            disabled={completing}
+          >
+            {completing ? "..." : "Done"}
+          </Button>
+        </div>
       </div>
-    </div>
+
+      {showNote && (
+        <div style={{ marginTop: t.spaceSm, display: "flex", gap: t.spaceXs }}>
+          <Input
+            value={noteText}
+            onChange={(e) => setNoteText(e.target.value)}
+            placeholder="Optional completion note..."
+            style={{ flex: 1 }}
+            onKeyDown={(e) => { if (e.key === "Enter") handleComplete(); }}
+          />
+        </div>
+      )}
+    </Card>
   );
 }
 
 // ---------------------------------------------------------------------------
-// SummarySection
+// Helpers
 // ---------------------------------------------------------------------------
 
-function SummarySection({ title, variant, items, onComplete, onItemClick }: {
-  title: string;
-  variant: "danger" | "primary" | "muted";
-  items: DailySummaryItem[];
-  onComplete: () => void;
-  onItemClick: (taskId: string) => void;
-}) {
-  const { theme } = useTheme();
-
-  if (items.length === 0) return null;
-
-  const sectionColor = variant === "danger"
-    ? theme.color.danger
-    : variant === "primary"
-      ? theme.color.text
-      : theme.color.textMuted;
-
-  return (
-    <section>
-      <h2 style={{
-        fontSize: theme.font.size.sm,
-        fontWeight: 600,
-        textTransform: "uppercase",
-        letterSpacing: "0.05em",
-        padding: "8px 0",
-        marginTop: 16,
-        marginBottom: 8,
-        borderBottom: `1px solid ${theme.color.border}`,
-        color: sectionColor,
-      }}>
-        {title} ({items.length})
-      </h2>
-      {items.map((item) => (
-        <SummaryItem key={item.task.id} item={item} variant={variant} onComplete={onComplete} onItemClick={onItemClick} />
-      ))}
-    </section>
-  );
+function formatArea(area: string): string {
+  return area.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 // ---------------------------------------------------------------------------
 // DailySummaryPage
 // ---------------------------------------------------------------------------
 
-export function DailySummaryPage() {
-  const { theme } = useTheme();
-  const { summary, loading, error, refetch } = useDailySummary();
-  const [overlayTaskId, setOverlayTaskId] = useState<string | null>(null);
+export function DailySummaryPage({ onNavigate }: Props): React.JSX.Element {
+  const { summary, loading, error } = useDailySummary();
 
-  if (loading && !summary) {
+  if (loading) {
     return (
-      <div style={{ textAlign: "center", padding: `${theme.spacing["2xl"]} ${theme.spacing.lg}`, color: theme.color.textMuted }}>
-        Loading today's summary...
-      </div>
+      <PageShell>
+        <Stack gap="md">
+          <Skeleton height={60} />
+          <Skeleton height={60} />
+          <Skeleton height={60} />
+        </Stack>
+      </PageShell>
     );
   }
 
-  if (error && !summary) {
+  if (error) {
     return (
-      <div style={{ textAlign: "center", padding: `${theme.spacing.xl} ${theme.spacing.lg}`, color: theme.color.danger }}>
-        {error}
-      </div>
+      <PageShell>
+        <EmptyState icon="error" message="Failed to load summary">{error}</EmptyState>
+      </PageShell>
     );
   }
 
-  if (!summary) return null;
-
-  const isEmpty = summary.counts.total === 0;
+  if (!summary || summary.counts.total === 0) {
+    return (
+      <PageShell>
+        <EmptyState icon="check-circle" message="All clear">No tasks due today or upcoming. Enjoy your free time.</EmptyState>
+      </PageShell>
+    );
+  }
 
   return (
-    <div style={{ width: "100%", maxWidth: 640, margin: "0 auto", padding: `${theme.spacing.xl} ${theme.spacing.lg}` }}>
-      <div style={{
-        fontSize: theme.font.size.sm,
-        color: theme.color.textMuted,
-        marginBottom: 24,
-        textAlign: "center",
-      }}>
-        {new Date().toLocaleDateString("en-US", {
-          weekday: "long",
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        })}
+    <PageShell>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: t.spaceLg }}>
+        <h1 style={{ fontSize: t.fontSize2xl, fontWeight: 700, margin: 0 }}>Today</h1>
+        <span style={{ fontSize: t.fontSizeXs, color: t.colorTextMuted }}>
+          {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+        </span>
       </div>
 
-      {isEmpty ? (
-        <EmptyState icon="check_circle" message="All clear! Nothing due today. Enjoy your free time." />
-      ) : (
-        <>
-          <SummarySection
-            title="Overdue"
-            variant="danger"
-            items={summary.overdue}
-            onComplete={refetch}
-            onItemClick={setOverlayTaskId}
-          />
-          <SummarySection
-            title="Due Today"
-            variant="primary"
-            items={summary.due_today}
-            onComplete={refetch}
-            onItemClick={setOverlayTaskId}
-          />
-          <SummarySection
-            title="Upcoming"
-            variant="muted"
-            items={summary.upcoming}
-            onComplete={refetch}
-            onItemClick={setOverlayTaskId}
-          />
-        </>
+      {summary.overdue.length > 0 && (
+        <section>
+          <SectionHeading count={summary.counts.overdue}>Overdue</SectionHeading>
+          <Stack gap="sm">
+            {summary.overdue.map((item) => (
+              <TaskRow key={item.task.id} item={item} onNavigate={onNavigate} />
+            ))}
+          </Stack>
+        </section>
       )}
 
-      {overlayTaskId && (
-        <TaskDetailOverlay taskId={overlayTaskId} onClose={() => setOverlayTaskId(null)} />
+      {summary.due_today.length > 0 && (
+        <section style={{ marginTop: t.spaceLg }}>
+          <SectionHeading count={summary.counts.due_today}>Due Today</SectionHeading>
+          <Stack gap="sm">
+            {summary.due_today.map((item) => (
+              <TaskRow key={item.task.id} item={item} onNavigate={onNavigate} />
+            ))}
+          </Stack>
+        </section>
       )}
+
+      {summary.upcoming.length > 0 && (
+        <section style={{ marginTop: t.spaceLg }}>
+          <SectionHeading count={summary.counts.upcoming}>Upcoming</SectionHeading>
+          <Stack gap="sm">
+            {summary.upcoming.map((item) => (
+              <TaskRow key={item.task.id} item={item} onNavigate={onNavigate} />
+            ))}
+          </Stack>
+        </section>
+      )}
+    </PageShell>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// PageShell
+// ---------------------------------------------------------------------------
+
+function PageShell({ children }: { children: React.ReactNode }): React.JSX.Element {
+  return (
+    <div style={{
+      maxWidth: 800,
+      margin: "0 auto",
+      padding: `${t.spaceXl} ${t.spaceLg}`,
+    }}>
+      {children}
     </div>
   );
 }

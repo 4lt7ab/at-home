@@ -17,20 +17,21 @@ export class HomeTaskService implements IHomeTaskService {
     private eventBus: EventBus,
   ) {}
 
-  list(filter?: { id?: string; status?: string; area?: string; effort?: string; title?: string; limit?: number; offset?: number }): Paginated<HomeTaskSummary> {
-    return {
-      data: this.homeTaskRepo.findMany(filter).map(toHomeTaskSummary),
-      total: this.homeTaskRepo.count(filter),
-    };
+  async list(filter?: { id?: string; status?: string; area?: string; effort?: string; title?: string; limit?: number; offset?: number }): Promise<Paginated<HomeTaskSummary>> {
+    const [data, total] = await Promise.all([
+      this.homeTaskRepo.findMany(filter),
+      this.homeTaskRepo.count(filter),
+    ]);
+    return { data: data.map(toHomeTaskSummary), total };
   }
 
-  get(id: string): HomeTask {
-    const task = this.homeTaskRepo.findById(id);
+  async get(id: string): Promise<HomeTask> {
+    const task = await this.homeTaskRepo.findById(id);
     if (!task) throw new ServiceError("home task not found", 404);
     return task;
   }
 
-  create(inputs: CreateHomeTaskInput[]): HomeTask[] {
+  async create(inputs: CreateHomeTaskInput[]): Promise<HomeTask[]> {
     for (const input of inputs) {
       if (!input.title?.trim()) {
         throw new ServiceError("title is required", 400);
@@ -60,9 +61,9 @@ export class HomeTaskService implements IHomeTaskService {
       effort: input.effort ?? null,
     }));
 
-    const tasks = this.homeTaskRepo.insertMany(rows);
+    const tasks = await this.homeTaskRepo.insertMany(rows);
     for (const t of tasks) {
-      this.activityLog.insert({
+      await this.activityLog.insert({
         entity_type: "home_task",
         entity_id: t.id,
         action: "created",
@@ -73,7 +74,7 @@ export class HomeTaskService implements IHomeTaskService {
     return tasks;
   }
 
-  update(inputs: UpdateHomeTaskInput[]): HomeTask[] {
+  async update(inputs: UpdateHomeTaskInput[]): Promise<HomeTask[]> {
     for (const input of inputs) {
       if (input.title !== undefined && !input.title.trim()) {
         throw new ServiceError("title cannot be empty", 400);
@@ -93,14 +94,14 @@ export class HomeTaskService implements IHomeTaskService {
       if (input.effort !== undefined && input.effort !== null && !(EFFORT_LEVELS as readonly string[]).includes(input.effort)) {
         throw new ServiceError(`effort must be one of: ${(EFFORT_LEVELS as readonly string[]).join(", ")}`, 400);
       }
-      const existing = this.homeTaskRepo.findById(input.id);
+      const existing = await this.homeTaskRepo.findById(input.id);
       if (!existing) throw new ServiceError(`home task not found: ${input.id}`, 404);
     }
 
-    const tasks = this.homeTaskRepo.updateMany(inputs);
+    const tasks = await this.homeTaskRepo.updateMany(inputs);
     for (const t of tasks) {
       const fields = Object.keys(inputs.find((i) => i.id === t.id) ?? {}).filter((k) => k !== "id");
-      this.activityLog.insert({
+      await this.activityLog.insert({
         entity_type: "home_task",
         entity_id: t.id,
         action: "updated",
@@ -111,20 +112,20 @@ export class HomeTaskService implements IHomeTaskService {
     return tasks;
   }
 
-  remove(ids: string[]): number {
+  async remove(ids: string[]): Promise<number> {
     // Collect cascade-affected entities BEFORE deletion
     const affectedScheduleIds: string[] = [];
     const affectedNoteIds: string[] = [];
     for (const id of ids) {
-      const schedule = this.scheduleRepo.findByTaskId(id);
+      const schedule = await this.scheduleRepo.findByTaskId(id);
       if (schedule) affectedScheduleIds.push(schedule.id);
-      const notes = this.noteRepo.findByTaskId(id);
+      const notes = await this.noteRepo.findByTaskId(id);
       affectedNoteIds.push(...notes.map(n => n.id));
     }
 
-    const deleted = this.homeTaskRepo.deleteMany(ids);
+    const deleted = await this.homeTaskRepo.deleteMany(ids);
     for (const id of ids) {
-      this.activityLog.insert({
+      await this.activityLog.insert({
         entity_type: "home_task",
         entity_id: id,
         action: "deleted",
@@ -137,7 +138,7 @@ export class HomeTaskService implements IHomeTaskService {
     if (affectedScheduleIds.length > 0) {
       this.eventBus.emit({ type: "deleted", entity_type: "schedule", ids: affectedScheduleIds });
       for (const sid of affectedScheduleIds) {
-        this.activityLog.insert({
+        await this.activityLog.insert({
           entity_type: "schedule",
           entity_id: sid,
           action: "deleted",
@@ -148,7 +149,7 @@ export class HomeTaskService implements IHomeTaskService {
 
     // Emit cascade events for notes (ON DELETE SET NULL -- notes still exist with task_id = null)
     if (affectedNoteIds.length > 0) {
-      const updatedNotes = affectedNoteIds.map(nid => this.noteRepo.findById(nid)).filter(Boolean);
+      const updatedNotes = (await Promise.all(affectedNoteIds.map(nid => this.noteRepo.findById(nid)))).filter(Boolean);
       if (updatedNotes.length > 0) {
         this.eventBus.emit({ type: "updated", entity_type: "note", payload: updatedNotes });
       }

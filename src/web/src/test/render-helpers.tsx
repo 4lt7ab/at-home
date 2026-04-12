@@ -2,8 +2,7 @@ import { render, screen, fireEvent, waitFor, act, renderHook } from "@testing-li
 import userEvent from "@testing-library/user-event";
 import type { RenderOptions } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
-import { ThemeProvider } from "../components/theme";
-import type { ThemeProviderProps } from "../components/theme";
+import { ThemeProvider } from "@4lt7ab/ui/core";
 import { EventSubscriptionContext } from "../hooks/useEventSubscription";
 import type { EventSubscriptionContextValue } from "../hooks/useEventSubscription";
 import type { HomeTaskSummary, NoteSummary, ScheduleSummary } from "@domain/entities";
@@ -23,12 +22,11 @@ const defaultEventContext: EventSubscriptionContextValue = {
 // ---------------------------------------------------------------------------
 
 interface ProviderOptions extends Omit<RenderOptions, "wrapper"> {
-  themeName?: string;
   eventContext?: Partial<EventSubscriptionContextValue>;
 }
 
 /**
- * Renders a component wrapped in ThemeContext and EventSubscriptionContext
+ * Renders a component wrapped in ThemeProvider and EventSubscriptionContext
  * providers with sensible defaults. Override context values via options.
  */
 export function renderWithProviders(
@@ -36,7 +34,6 @@ export function renderWithProviders(
   options: ProviderOptions = {},
 ) {
   const {
-    themeName = "deepTeal",
     eventContext = {},
     ...renderOptions
   } = options;
@@ -45,7 +42,7 @@ export function renderWithProviders(
 
   function Wrapper({ children }: { children: ReactNode }) {
     return (
-      <ThemeProvider forcedTheme={themeName} isolated>
+      <ThemeProvider defaultTheme="synthwave">
         <EventSubscriptionContext.Provider value={events}>
           {children}
         </EventSubscriptionContext.Provider>

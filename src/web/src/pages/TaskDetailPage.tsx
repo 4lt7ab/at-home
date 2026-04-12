@@ -1,4 +1,8 @@
 import { useState, useEffect } from "react";
+import {
+  semantic as t, Card, Badge, Button, Stack, Skeleton, EmptyState,
+  Input, Select, Textarea, ModalShell, StatusDot,
+} from "@4lt7ab/ui/ui";
 import { TASK_STATUSES, AREAS, EFFORT_LEVELS, RECURRENCE_TYPES } from "@domain/entities";
 import type { ActivityLog, ScheduleSummary } from "@domain/entities";
 import { useTask } from "../hooks";
@@ -7,14 +11,6 @@ import {
   createNotes, createSchedules, updateSchedules, deleteSchedules,
   fetchSchedule,
 } from "../api";
-import {
-  Button, Select, Textarea, Badge, StatusDot, Input,
-  BackButton, Card, Stack,
-  ModalShell,
-  ContentCard, SectionHeading,
-  MarkdownContent, stripMarkdown,
-  useTheme,
-} from "../components";
 import { formatCompletionSummary } from "../utils";
 
 // ---------------------------------------------------------------------------
@@ -26,8 +22,7 @@ function ScheduleOverlay({ taskId, existing, onClose, onSaved }: {
   existing: ScheduleSummary | null;
   onClose: () => void;
   onSaved: () => void;
-}) {
-  const { theme } = useTheme();
+}): React.JSX.Element {
   const [recurrenceType, setRecurrenceType] = useState(existing?.recurrence_type ?? "weekly");
   const [nextDue, setNextDue] = useState(existing?.next_due ?? "");
   const [ruleJson, setRuleJson] = useState("");
@@ -35,21 +30,16 @@ function ScheduleOverlay({ taskId, existing, onClose, onSaved }: {
   const [loadingRule, setLoadingRule] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch full schedule to get recurrence_rule when editing existing
   useEffect(() => {
     if (!existing) return;
     setLoadingRule(true);
     fetchSchedule(existing.id)
-      .then((full) => {
-        setRuleJson(full.recurrence_rule ?? "");
-      })
-      .catch(() => {
-        // Graceful degradation: leave ruleJson empty
-      })
+      .then((full) => setRuleJson(full.recurrence_rule ?? ""))
+      .catch(() => {})
       .finally(() => setLoadingRule(false));
   }, [existing]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
     setError(null);
     setBusy(true);
@@ -71,56 +61,36 @@ function ScheduleOverlay({ taskId, existing, onClose, onSaved }: {
       }
       onSaved();
       onClose();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "An unexpected error occurred");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save schedule");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <ModalShell onClose={onClose} maxWidth={400}>
+    <ModalShell onClose={onClose}>
       <form onSubmit={handleSubmit}>
-        <h3 style={{ fontSize: theme.font.size.lg, fontWeight: 600, marginBottom: theme.spacing.lg, color: theme.color.text }}>
-          {existing ? "Edit Schedule" : "Create Schedule"}
+        <h3 style={{ fontSize: t.fontSizeLg, fontWeight: 600, marginBottom: t.spaceLg }}>
+          {existing ? "Edit Schedule" : "Add Schedule"}
         </h3>
-        <div style={{ marginBottom: theme.spacing.md }}>
-          <Select
-            label="Recurrence Type"
-            value={recurrenceType}
-            onChange={(e) => setRecurrenceType(e.target.value)}
-          >
-            {RECURRENCE_TYPES.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
+        <Stack gap="sm">
+          <Select value={recurrenceType} onChange={(e) => setRecurrenceType(e.target.value)}>
+            {RECURRENCE_TYPES.map((rt) => <option key={rt} value={rt}>{rt}</option>)}
           </Select>
-        </div>
-        <div style={{ marginBottom: theme.spacing.md }}>
-          <Input
-            label="Next Due (YYYY-MM-DD)"
-            type="date"
-            value={nextDue}
-            onChange={(e) => setNextDue(e.target.value)}
-          />
-        </div>
-        <div style={{ marginBottom: theme.spacing.sm }}>
+          <Input type="date" value={nextDue} onChange={(e) => setNextDue(e.target.value)} placeholder="Next due" />
           <Textarea
-            label="Recurrence Rule (JSON, optional)"
             rows={2}
-            placeholder={loadingRule ? "Loading..." : 'e.g. {"type":"weekly","days":[1,3,5]}'}
+            placeholder={loadingRule ? "Loading..." : 'Recurrence rule JSON (optional)'}
             value={ruleJson}
             onChange={(e) => setRuleJson(e.target.value)}
             disabled={loadingRule}
           />
-        </div>
-        {error && (
-          <div style={{ color: theme.color.danger, fontSize: theme.font.size.xs, marginTop: theme.spacing.xs }}>
-            {error}
-          </div>
-        )}
-        <Stack direction="row" justify="flex-end" gap="sm" style={{ marginTop: theme.spacing.md }}>
-          <Button variant="ghost" type="button" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" type="submit" loading={busy}>Save</Button>
+        </Stack>
+        {error && <div style={{ color: t.colorError, fontSize: t.fontSizeXs, marginTop: t.spaceXs }}>{error}</div>}
+        <Stack direction="row" gap="sm" style={{ marginTop: t.spaceLg, justifyContent: "flex-end" }}>
+          <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" type="submit" disabled={busy}>{busy ? "Saving..." : "Save"}</Button>
         </Stack>
       </form>
     </ModalShell>
@@ -135,68 +105,43 @@ function ScheduleSection({ taskId, schedules, onRefetch }: {
   taskId: string;
   schedules: ScheduleSummary[];
   onRefetch: () => void;
-}) {
-  const { theme } = useTheme();
+}): React.JSX.Element {
   const [showOverlay, setShowOverlay] = useState(false);
   const [editSchedule, setEditSchedule] = useState<ScheduleSummary | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const schedule = schedules[0] ?? null;
 
-  async function handleDelete(id: string) {
-    setDeleteError(null);
-    try {
-      await deleteSchedules([id]);
-      onRefetch();
-    } catch (e) {
-      setDeleteError(e instanceof Error ? e.message : "An unexpected error occurred");
-    }
+  async function handleDelete(id: string): Promise<void> {
+    await deleteSchedules([id]);
+    onRefetch();
   }
 
   return (
-    <>
-      <SectionHeading>Schedule</SectionHeading>
+    <section style={{ marginTop: t.spaceXl }}>
+      <h2 style={{ fontSize: t.fontSizeLg, fontWeight: 600, marginBottom: t.spaceSm }}>Schedule</h2>
       {schedule ? (
-        <ContentCard variant="schedule">
-          <div>
-            <Badge variant="recurrence">{schedule.recurrence_type}</Badge>
-            {schedule.next_due && (
-              <span style={{ fontSize: theme.font.size.xs, color: theme.color.textMuted }}>Next due: {schedule.next_due}</span>
-            )}
+        <Card>
+          <div style={{ display: "flex", alignItems: "center", gap: t.spaceSm, flexWrap: "wrap" }}>
+            <Badge variant="secondary">{schedule.recurrence_type}</Badge>
+            {schedule.next_due && <span style={{ fontSize: t.fontSizeXs, color: t.colorTextMuted }}>Next due: {schedule.next_due}</span>}
           </div>
           {schedule.last_completed && (
-            <div style={{ fontSize: theme.font.size.xs, color: theme.color.textFaint, marginTop: theme.spacing.xs }}>
+            <div style={{ fontSize: t.fontSizeXs, color: t.colorTextMuted, marginTop: t.spaceXs }}>
               Last completed: {schedule.last_completed}
             </div>
           )}
-          <div style={{ marginTop: theme.spacing.sm }}>
-            <Button variant="ghost" size="sm" onClick={() => { setEditSchedule(schedule); setShowOverlay(true); }}>
-              Edit
-            </Button>
-            <Button variant="danger" size="sm" onClick={() => handleDelete(schedule.id)} style={{ marginLeft: theme.spacing.sm }}>
-              Remove
-            </Button>
-          </div>
-          {deleteError && (
-            <div style={{ color: theme.color.danger, fontSize: theme.font.size.xs, marginTop: theme.spacing.xs }}>
-              {deleteError}
-            </div>
-          )}
-        </ContentCard>
+          <Stack direction="row" gap="xs" style={{ marginTop: t.spaceSm }}>
+            <Button variant="secondary" size="sm" onClick={() => { setEditSchedule(schedule); setShowOverlay(true); }}>Edit</Button>
+            <Button variant="destructive" size="sm" onClick={() => handleDelete(schedule.id)}>Remove</Button>
+          </Stack>
+        </Card>
       ) : (
-        <Button variant="ghost" size="sm" onClick={() => { setEditSchedule(null); setShowOverlay(true); }}>
-          + Add schedule
-        </Button>
+        <Button variant="secondary" size="sm" onClick={() => { setEditSchedule(null); setShowOverlay(true); }}>+ Add schedule</Button>
       )}
       {showOverlay && (
-        <ScheduleOverlay
-          taskId={taskId}
-          existing={editSchedule}
-          onClose={() => setShowOverlay(false)}
-          onSaved={onRefetch}
-        />
+        <ScheduleOverlay taskId={taskId} existing={editSchedule} onClose={() => setShowOverlay(false)} onSaved={onRefetch} />
       )}
-    </>
+    </section>
   );
 }
 
@@ -206,22 +151,18 @@ function ScheduleSection({ taskId, schedules, onRefetch }: {
 
 function NotesSection({ taskId, notes, onRefetch }: {
   taskId: string;
-  notes: Array<{ id: string; title: string; content?: string | null; task_id?: string | null; note_type?: string }>;
+  notes: Array<{ id: string; title: string; content?: string | null; note_type?: string }>;
   onRefetch: () => void;
-}) {
-  const { theme } = useTheme();
+}): React.JSX.Element {
   const [showAdd, setShowAdd] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  // Filter to manual notes only (completion notes appear in CompletionHistory)
   const manualNotes = notes.filter((n) => n.note_type !== "completion");
 
-  async function handleAdd() {
+  async function handleAdd(): Promise<void> {
     if (!newTitle.trim()) return;
-    setError(null);
     setBusy(true);
     try {
       await createNotes([{ title: newTitle.trim(), content: newContent.trim() || undefined, task_id: taskId }]);
@@ -229,60 +170,43 @@ function NotesSection({ taskId, notes, onRefetch }: {
       setNewContent("");
       setShowAdd(false);
       onRefetch();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "An unexpected error occurred");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <>
-      <SectionHeading count={manualNotes.length}>Notes</SectionHeading>
-      {manualNotes.map((n) => (
-        <ContentCard key={n.id} variant="note">
-          <div style={{ fontWeight: 500 }}>{n.title}</div>
-          {n.content && (
-            n.content.length > 120
-              ? <div style={{ fontSize: theme.font.size.xs, color: theme.color.textFaint, marginTop: theme.spacing.xs }}>
-                  {stripMarkdown(n.content).slice(0, 120) + "..."}
-                </div>
-              : <MarkdownContent content={n.content} style={{ fontSize: theme.font.size.xs, color: theme.color.textFaint, marginTop: theme.spacing.xs }} />
-          )}
-        </ContentCard>
-      ))}
+    <section style={{ marginTop: t.spaceXl }}>
+      <h2 style={{ fontSize: t.fontSizeLg, fontWeight: 600, marginBottom: t.spaceSm }}>
+        Notes {manualNotes.length > 0 && <Badge variant="secondary">{manualNotes.length}</Badge>}
+      </h2>
+      <Stack gap="sm">
+        {manualNotes.map((n) => (
+          <Card key={n.id}>
+            <div style={{ fontWeight: 500 }}>{n.title}</div>
+            {n.content && (
+              <div style={{ fontSize: t.fontSizeXs, color: t.colorTextMuted, marginTop: t.spaceXs }}>
+                {n.content.length > 200 ? n.content.slice(0, 200) + "..." : n.content}
+              </div>
+            )}
+          </Card>
+        ))}
+      </Stack>
       {!showAdd ? (
-        <Button variant="ghost" size="sm" onClick={() => setShowAdd(true)}>+ Add note</Button>
+        <Button variant="secondary" size="sm" onClick={() => setShowAdd(true)} style={{ marginTop: t.spaceSm }}>+ Add note</Button>
       ) : (
-        <Card style={{ background: theme.color.surfaceContainer }}>
-          <div style={{ marginBottom: theme.spacing.sm }}>
-            <Input
-              placeholder="Note title"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              autoFocus
-            />
-          </div>
-          <div style={{ marginBottom: theme.spacing.sm }}>
-            <Textarea
-              rows={2}
-              placeholder="Content (optional)"
-              value={newContent}
-              onChange={(e) => setNewContent(e.target.value)}
-            />
-          </div>
-          {error && (
-            <div style={{ color: theme.color.danger, fontSize: theme.font.size.xs, marginTop: theme.spacing.xs }}>
-              {error}
-            </div>
-          )}
-          <Stack direction="row" gap="sm" style={{ marginTop: theme.spacing.xs }}>
-            <Button variant="ghost" onClick={() => setShowAdd(false)}>Cancel</Button>
-            <Button variant="primary" loading={busy} onClick={handleAdd}>Add Note</Button>
+        <Card style={{ marginTop: t.spaceSm }}>
+          <Stack gap="sm">
+            <Input placeholder="Note title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} autoFocus />
+            <Textarea rows={2} placeholder="Content (optional)" value={newContent} onChange={(e) => setNewContent(e.target.value)} />
+            <Stack direction="row" gap="sm">
+              <Button variant="secondary" onClick={() => setShowAdd(false)}>Cancel</Button>
+              <Button variant="primary" onClick={handleAdd} disabled={busy}>{busy ? "Adding..." : "Add"}</Button>
+            </Stack>
           </Stack>
         </Card>
       )}
-    </>
+    </section>
   );
 }
 
@@ -293,53 +217,41 @@ function NotesSection({ taskId, notes, onRefetch }: {
 function CompletionHistory({ history, notes }: {
   history: ActivityLog[];
   notes: Array<{ id: string; title: string; content?: string | null; note_type?: string }>;
-}) {
-  const { theme } = useTheme();
-
+}): React.JSX.Element | null {
   if (history.length === 0) return null;
 
-  // Build a map of note_id -> note for correlating completion entries with their notes
-  const noteMap = new Map<string, typeof notes[number]>();
-  for (const n of notes) {
-    noteMap.set(n.id, n);
-  }
+  const noteMap = new Map<string, (typeof notes)[number]>();
+  for (const n of notes) noteMap.set(n.id, n);
 
   return (
-    <>
-      <SectionHeading count={history.length}>Completion History</SectionHeading>
-      {history.map((entry) => {
-        // Try to extract note_id from the activity log summary
-        let noteId: string | null = null;
-        try {
-          const data = JSON.parse(entry.summary);
-          noteId = data.note_id ?? null;
-        } catch { /* ignore */ }
-        const companionNote = noteId ? noteMap.get(noteId) ?? null : null;
+    <section style={{ marginTop: t.spaceXl }}>
+      <h2 style={{ fontSize: t.fontSizeLg, fontWeight: 600, marginBottom: t.spaceSm }}>
+        Completion History <Badge variant="secondary">{history.length}</Badge>
+      </h2>
+      <Stack gap="xs">
+        {history.map((entry) => {
+          let noteId: string | null = null;
+          try { noteId = JSON.parse(entry.summary).note_id ?? null; } catch { /* */ }
+          const note = noteId ? noteMap.get(noteId) ?? null : null;
 
-        return (
-          <div key={entry.id}>
-            <ContentCard variant="history">
-              <span>{formatCompletionSummary(entry.summary)}</span>
-              <span style={{ marginLeft: theme.spacing.sm, color: theme.color.textFaint }}>
-                {new Date(entry.created_at).toLocaleDateString()}
-              </span>
-            </ContentCard>
-            {companionNote && (
-              <ContentCard variant="completion-note" style={{ marginLeft: theme.spacing.md, marginTop: 2 }}>
-                <div style={{ fontWeight: 500, fontSize: theme.font.size.xs }}>{companionNote.title}</div>
-                {companionNote.content && (
-                  companionNote.content.length > 120
-                    ? <div style={{ fontSize: theme.font.size.xxs, color: theme.color.textFaint, marginTop: 2 }}>
-                        {stripMarkdown(companionNote.content).slice(0, 120) + "..."}
-                      </div>
-                    : <MarkdownContent content={companionNote.content} style={{ fontSize: theme.font.size.xxs, color: theme.color.textFaint, marginTop: 2 }} />
-                )}
-              </ContentCard>
-            )}
-          </div>
-        );
-      })}
-    </>
+          return (
+            <Card key={entry.id}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: t.fontSizeSm }}>
+                <span>{formatCompletionSummary(entry.summary)}</span>
+                <span style={{ color: t.colorTextMuted, fontSize: t.fontSizeXs }}>
+                  {new Date(entry.created_at).toLocaleDateString()}
+                </span>
+              </div>
+              {note && (
+                <div style={{ fontSize: t.fontSizeXs, color: t.colorTextMuted, marginTop: t.spaceXs, paddingLeft: t.spaceSm, borderLeft: `2px solid ${t.colorBorder}` }}>
+                  {note.title}{note.content ? ` — ${note.content.slice(0, 100)}` : ""}
+                </div>
+              )}
+            </Card>
+          );
+        })}
+      </Stack>
+    </section>
   );
 }
 
@@ -347,11 +259,9 @@ function CompletionHistory({ history, notes }: {
 // TaskDetailPage
 // ---------------------------------------------------------------------------
 
-export function TaskDetailPage({ taskId, onBack }: { taskId: string; onBack: () => void }) {
-  const { theme } = useTheme();
+export function TaskDetailPage({ taskId, onBack }: { taskId: string; onBack: () => void }): React.JSX.Element {
   const { task, schedules, notes, completionHistory, loading, error, refetch } = useTask(taskId);
 
-  // Inline editing state
   const [editTitle, setEditTitle] = useState<string | null>(null);
   const [editDesc, setEditDesc] = useState<string | null>(null);
   const [editStatus, setEditStatus] = useState<string | null>(null);
@@ -360,40 +270,25 @@ export function TaskDetailPage({ taskId, onBack }: { taskId: string; onBack: () 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [completing, setCompleting] = useState(false);
-  const [completeError, setCompleteError] = useState<string | null>(null);
   const [completionNote, setCompletionNote] = useState("");
   const [showCompletionNote, setShowCompletionNote] = useState(false);
 
   if (loading && !task) {
-    return (
-      <div style={{ textAlign: "center", padding: `${theme.spacing["2xl"]} ${theme.spacing.lg}`, color: theme.color.textMuted }}>
-        Loading task...
-      </div>
-    );
+    return <PageShell><Stack gap="md"><Skeleton height={40} /><Skeleton height={200} /></Stack></PageShell>;
   }
   if (error && !task) {
-    return (
-      <div style={{ textAlign: "center", padding: `${theme.spacing.xl} ${theme.spacing.lg}`, color: theme.color.danger }}>
-        {error}
-      </div>
-    );
+    return <PageShell><EmptyState icon="error" message="Failed to load task">{error}</EmptyState></PageShell>;
   }
-  if (!task) return null;
+  if (!task) return <PageShell><EmptyState icon="search" message="Task not found" /></PageShell>;
 
   const currentTitle = editTitle ?? task.title;
   const currentDesc = editDesc ?? (task.description ?? "");
   const currentStatus = editStatus ?? task.status;
   const currentArea = editArea ?? (task.area ?? "");
   const currentEffort = editEffort ?? (task.effort ?? "");
+  const hasChanges = editTitle !== null || editDesc !== null || editStatus !== null || editArea !== null || editEffort !== null;
 
-  const hasChanges =
-    editTitle !== null ||
-    editDesc !== null ||
-    editStatus !== null ||
-    editArea !== null ||
-    editEffort !== null;
-
-  async function handleSave() {
+  async function handleSave(): Promise<void> {
     setSaveError(null);
     setSaving(true);
     const updates: Record<string, unknown> = { id: taskId };
@@ -402,152 +297,131 @@ export function TaskDetailPage({ taskId, onBack }: { taskId: string; onBack: () 
     if (editStatus !== null) updates.status = editStatus;
     if (editArea !== null) updates.area = editArea || null;
     if (editEffort !== null) updates.effort = editEffort || null;
-
     try {
       await updateTasks([updates as never]);
-      setEditTitle(null);
-      setEditDesc(null);
-      setEditStatus(null);
-      setEditArea(null);
-      setEditEffort(null);
+      setEditTitle(null); setEditDesc(null); setEditStatus(null); setEditArea(null); setEditEffort(null);
       refetch();
-    } catch (e) {
-      setSaveError(e instanceof Error ? e.message : "An unexpected error occurred");
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleComplete() {
-    setCompleteError(null);
+  async function handleComplete(): Promise<void> {
     setCompleting(true);
     try {
       await completeTask(taskId, completionNote || undefined);
       setCompletionNote("");
       setShowCompletionNote(false);
       refetch();
-    } catch (e) {
-      setCompleteError(e instanceof Error ? e.message : "An unexpected error occurred");
     } finally {
       setCompleting(false);
     }
   }
 
   return (
-    <div style={{
-      width: "100%",
-      maxWidth: 640,
-      margin: "0 auto",
-      padding: `${theme.spacing.xl} ${theme.spacing.lg}`,
-    }}>
-      <BackButton onClick={onBack} label="Back to Tasks" style={{ marginBottom: theme.spacing.lg }} />
+    <PageShell>
+      <Button variant="secondary" size="sm" onClick={onBack} style={{ marginBottom: t.spaceLg }}>
+        &larr; Back to Tasks
+      </Button>
 
-      {/* Title (editable) -- raw input styled as heading per plan */}
+      {/* Title */}
       <input
         style={{
-          fontSize: theme.font.size.xl,
-          fontWeight: 600,
-          marginBottom: theme.spacing.xs,
-          outline: "none",
-          cursor: "text",
-          border: "none",
-          borderBottom: "2px solid transparent",
+          fontSize: t.fontSize2xl,
+          fontWeight: 700,
           width: "100%",
           background: "transparent",
-          color: theme.color.text,
-          fontFamily: theme.font.headline,
+          border: "none",
+          borderBottom: `2px solid transparent`,
+          outline: "none",
+          color: t.colorText,
+          fontFamily: t.fontSans,
+          padding: `${t.spaceXs} 0`,
         }}
         value={currentTitle}
         onChange={(e) => setEditTitle(e.target.value)}
       />
 
-      {/* Status, Area, Effort selects */}
-      <div style={{ marginTop: theme.spacing.md, display: "flex", flexWrap: "wrap", gap: theme.spacing.sm, alignItems: "center" }}>
-        <StatusDot status={currentStatus} />
-        <Select value={currentStatus} onChange={(e) => setEditStatus(e.target.value)} style={{ width: "auto", minWidth: 100 }}>
-          {TASK_STATUSES.map((st) => (
-            <option key={st} value={st}>{st}</option>
-          ))}
+      {/* Status / Area / Effort */}
+      <Stack direction="row" gap="sm" style={{ marginTop: t.spaceMd, flexWrap: "wrap", alignItems: "center" }}>
+        <StatusDot status={currentStatus} color={statusColor(currentStatus)} size="sm" />
+        <Select style={{ width: "auto" }} value={currentStatus} onChange={(e) => setEditStatus(e.target.value)}>
+          {TASK_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
         </Select>
-        <Select value={currentArea} onChange={(e) => setEditArea(e.target.value)} style={{ width: "auto", minWidth: 120 }}>
+        <Select style={{ width: "auto" }} value={currentArea} onChange={(e) => setEditArea(e.target.value)}>
           <option value="">No area</option>
-          {AREAS.map((a) => (
-            <option key={a} value={a}>{a.replace(/_/g, " ")}</option>
-          ))}
+          {AREAS.map((a) => <option key={a} value={a}>{a.replace(/_/g, " ")}</option>)}
         </Select>
-        <Select value={currentEffort} onChange={(e) => setEditEffort(e.target.value)} style={{ width: "auto", minWidth: 100 }}>
+        <Select style={{ width: "auto" }} value={currentEffort} onChange={(e) => setEditEffort(e.target.value)}>
           <option value="">No effort</option>
-          {EFFORT_LEVELS.map((e) => (
-            <option key={e} value={e}>{e}</option>
-          ))}
+          {EFFORT_LEVELS.map((e) => <option key={e} value={e}>{e}</option>)}
         </Select>
-      </div>
+      </Stack>
 
       {/* Description */}
-      <SectionHeading>Description</SectionHeading>
-      <Textarea
-        rows={4}
-        placeholder="Add a description..."
-        value={currentDesc}
-        onChange={(e) => setEditDesc(e.target.value)}
-      />
+      <section style={{ marginTop: t.spaceXl }}>
+        <h2 style={{ fontSize: t.fontSizeLg, fontWeight: 600, marginBottom: t.spaceSm }}>Description</h2>
+        <Textarea rows={4} placeholder="Add a description..." value={currentDesc} onChange={(e) => setEditDesc(e.target.value)} />
+      </section>
 
-      {/* Save button */}
+      {/* Save */}
       {hasChanges && (
-        <Button
-          variant="primary"
-          loading={saving}
-          onClick={handleSave}
-          style={{ marginTop: theme.spacing.sm }}
-        >
-          Save Changes
+        <Button variant="primary" onClick={handleSave} disabled={saving} style={{ marginTop: t.spaceSm }}>
+          {saving ? "Saving..." : "Save Changes"}
         </Button>
       )}
-      {saveError && (
-        <div style={{ color: theme.color.danger, fontSize: theme.font.size.xs, marginTop: theme.spacing.xs }}>
-          {saveError}
-        </div>
-      )}
+      {saveError && <div style={{ color: t.colorError, fontSize: t.fontSizeXs, marginTop: t.spaceXs }}>{saveError}</div>}
 
       {/* Mark Done */}
-      <SectionHeading>Completion</SectionHeading>
-      <div style={{ display: "flex", alignItems: "center", gap: theme.spacing.md }}>
-        <Button
-          variant="ghost"
-          loading={completing}
-          onClick={handleComplete}
-          style={{ color: theme.color.success, borderColor: theme.color.success }}
-        >
-          Mark Done
-        </Button>
-        {!showCompletionNote && (
-          <Button variant="ghost" size="sm" onClick={() => setShowCompletionNote(true)}>+ note</Button>
+      <section style={{ marginTop: t.spaceXl }}>
+        <h2 style={{ fontSize: t.fontSizeLg, fontWeight: 600, marginBottom: t.spaceSm }}>Completion</h2>
+        <Stack direction="row" gap="sm" style={{ alignItems: "center" }}>
+          <Button variant="primary" onClick={handleComplete} disabled={completing}>
+            {completing ? "..." : "Mark Done"}
+          </Button>
+          {!showCompletionNote && (
+            <Button variant="secondary" size="sm" onClick={() => setShowCompletionNote(true)}>+ note</Button>
+          )}
+        </Stack>
+        {showCompletionNote && (
+          <Textarea
+            rows={2}
+            placeholder="Completion note..."
+            value={completionNote}
+            onChange={(e) => setCompletionNote(e.target.value)}
+            autoFocus
+            style={{ marginTop: t.spaceSm }}
+          />
         )}
-      </div>
-      {completeError && (
-        <div style={{ color: theme.color.danger, fontSize: theme.font.size.xs, marginTop: theme.spacing.xs }}>
-          {completeError}
-        </div>
-      )}
-      {showCompletionNote && (
-        <Textarea
-          rows={2}
-          placeholder="Completion note..."
-          value={completionNote}
-          onChange={(e) => setCompletionNote(e.target.value)}
-          autoFocus
-          style={{ marginTop: theme.spacing.sm }}
-        />
-      )}
+      </section>
 
-      {/* Schedule */}
       <ScheduleSection taskId={taskId} schedules={schedules} onRefetch={refetch} />
-
-      {/* Notes */}
       <NotesSection taskId={taskId} notes={notes} onRefetch={refetch} />
-
-      {/* Completion History */}
       <CompletionHistory history={completionHistory} notes={notes} />
+    </PageShell>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function statusColor(status: string): string {
+  switch (status) {
+    case "active": return "green";
+    case "paused": return "yellow";
+    case "done": return "blue";
+    case "archived": return "gray";
+    default: return "gray";
+  }
+}
+
+function PageShell({ children }: { children: React.ReactNode }): React.JSX.Element {
+  return (
+    <div style={{ maxWidth: 800, margin: "0 auto", padding: `${t.spaceXl} ${t.spaceLg}` }}>
+      {children}
     </div>
   );
 }

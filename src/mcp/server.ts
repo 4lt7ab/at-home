@@ -1,4 +1,4 @@
-import type { Database } from "bun:sqlite";
+import type { Sql } from "../domain/db/connection";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { z } from "zod";
@@ -22,7 +22,7 @@ import type { EventBus } from "../domain/events";
 import { completeTask } from "../domain/operations/complete-task";
 
 export interface McpServiceContext {
-  db: Database;
+  sql: Sql;
   eventBus: EventBus;
   homeTaskService: IHomeTaskService;
   noteService: INoteService;
@@ -33,9 +33,9 @@ export interface McpServiceContext {
   activityLogRepo: ActivityLogRepository;
 }
 
-function handle<T>(fn: () => T) {
+async function handle<T>(fn: () => Promise<T>) {
   try {
-    const result = fn();
+    const result = await fn();
     return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
   } catch (err) {
     if (err instanceof ServiceError) {
@@ -132,7 +132,7 @@ export function createMcpServer(ctx: McpServiceContext): McpServer {
         ids: z.array(z.string().max(26)),
       },
     },
-    ({ ids }) => handle(() => { const deleted = homeTaskService.remove(ids); return { deleted }; })
+    ({ ids }) => handle(async () => { const deleted = await homeTaskService.remove(ids); return { deleted }; })
   );
 
   // -- Note tools -------------------------------------------------------
@@ -202,7 +202,7 @@ export function createMcpServer(ctx: McpServiceContext): McpServer {
         ids: z.array(z.string().max(26)),
       },
     },
-    ({ ids }) => handle(() => { const deleted = noteService.remove(ids); return { deleted }; })
+    ({ ids }) => handle(async () => { const deleted = await noteService.remove(ids); return { deleted }; })
   );
 
   // -- Schedule tools ---------------------------------------------------
@@ -272,7 +272,7 @@ export function createMcpServer(ctx: McpServiceContext): McpServer {
         ids: z.array(z.string().max(26)),
       },
     },
-    ({ ids }) => handle(() => { const deleted = scheduleService.remove(ids); return { deleted }; })
+    ({ ids }) => handle(async () => { const deleted = await scheduleService.remove(ids); return { deleted }; })
   );
 
   // -- Composite tools -----------------------------------------------------
@@ -288,7 +288,7 @@ export function createMcpServer(ctx: McpServiceContext): McpServer {
       },
     },
     ({ date, lookahead_days }) =>
-      handle(() => {
+      handle(async () => {
         const now = new Date();
         const targetDate =
           date ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -308,7 +308,7 @@ export function createMcpServer(ctx: McpServiceContext): McpServer {
       },
     },
     ({ task_id, note }) =>
-      handle(() => completeTask(ctx.db, ctx, { task_id, note }))
+      handle(() => completeTask(ctx.sql, ctx, { task_id, note }))
   );
 
   return server;
@@ -316,11 +316,6 @@ export function createMcpServer(ctx: McpServiceContext): McpServer {
 
 /**
  * Create a stateless HTTP handler that reuses a single McpServer instance.
- *
- * McpServer supports sequential connect -> handle -> close cycles (close() resets
- * the internal transport reference), but does NOT support concurrent connections.
- * A promise chain serializes requests so connect() is never called while a
- * previous transport is still active.
  */
 export function createMcpHttpHandler(ctx: McpServiceContext): (req: Request) => Promise<Response> {
   const server = createMcpServer(ctx);
@@ -328,8 +323,6 @@ export function createMcpHttpHandler(ctx: McpServiceContext): (req: Request) => 
 
   return (req: Request): Promise<Response> => {
     const result = pending.then(async () => {
-      // enableJsonResponse is load-bearing: without it the transport returns SSE streams,
-      // which breaks the serialized promise-chain handler above.
       const transport = new WebStandardStreamableHTTPServerTransport({ enableJsonResponse: true });
       try {
         await server.connect(transport);

@@ -31,38 +31,37 @@ export class ScheduleService implements IScheduleService {
     private eventBus: EventBus,
   ) {}
 
-  list(filter?: {
+  async list(filter?: {
     id?: string;
     task_id?: string;
     recurrence_type?: string;
     limit?: number;
     offset?: number;
-  }): Paginated<ScheduleSummary> {
-    return {
-      data: this.scheduleRepo.findMany(filter).map(toScheduleSummary),
-      total: this.scheduleRepo.count(filter),
-    };
+  }): Promise<Paginated<ScheduleSummary>> {
+    const [data, total] = await Promise.all([
+      this.scheduleRepo.findMany(filter),
+      this.scheduleRepo.count(filter),
+    ]);
+    return { data: data.map(toScheduleSummary), total };
   }
 
-  get(id: string): Schedule {
-    const schedule = this.scheduleRepo.findById(id);
+  async get(id: string): Promise<Schedule> {
+    const schedule = await this.scheduleRepo.findById(id);
     if (!schedule) throw new ServiceError("schedule not found", 404);
     return schedule;
   }
 
-  create(inputs: CreateScheduleInput[]): Schedule[] {
+  async create(inputs: CreateScheduleInput[]): Promise<Schedule[]> {
     for (const input of inputs) {
-      // Validate task_id references an existing home_task
       if (!input.task_id?.trim()) {
         throw new ServiceError("task_id is required", 400);
       }
-      const task = this.homeTaskRepo.findById(input.task_id);
+      const task = await this.homeTaskRepo.findById(input.task_id);
       if (!task) {
         throw new ServiceError(`home_task not found: ${input.task_id}`, 404);
       }
 
-      // Enforce one schedule per task
-      const existing = this.scheduleRepo.findByTaskId(input.task_id);
+      const existing = await this.scheduleRepo.findByTaskId(input.task_id);
       if (existing) {
         throw new ServiceError(
           `task ${input.task_id} already has a schedule (${existing.id})`,
@@ -70,7 +69,6 @@ export class ScheduleService implements IScheduleService {
         );
       }
 
-      // Validate recurrence_type
       if (
         !(RECURRENCE_TYPES as readonly string[]).includes(input.recurrence_type)
       ) {
@@ -80,11 +78,8 @@ export class ScheduleService implements IScheduleService {
         );
       }
 
-      // Validate recurrence_rule if provided
       if (input.recurrence_rule) {
-        const parsedRule = parseRule(input.recurrence_rule); // throws ServiceError on invalid
-
-        // Enforce consistency between recurrence_type and recurrence_rule
+        const parsedRule = parseRule(input.recurrence_rule);
         if (parsedRule.type !== input.recurrence_type) {
           throw new ServiceError(
             `recurrence_type '${input.recurrence_type}' does not match recurrence_rule type '${parsedRule.type}'`,
@@ -93,14 +88,12 @@ export class ScheduleService implements IScheduleService {
         }
       }
 
-      // Validate next_due if provided
       if (input.next_due !== undefined && input.next_due !== null) {
         if (!isValidDateString(input.next_due)) {
           throw new ServiceError("next_due must be a valid ISO date (YYYY-MM-DD)", 400);
         }
       }
 
-      // A one-off schedule must have next_due
       if (input.recurrence_type === "once" && !input.next_due && !input.recurrence_rule) {
         throw new ServiceError(
           "a 'once' schedule requires either next_due or a recurrence_rule with a date",
@@ -112,7 +105,6 @@ export class ScheduleService implements IScheduleService {
     const rows = inputs.map((input) => {
       let computedNextDue = input.next_due ?? null;
 
-      // Auto-compute next_due from recurrence_rule if not provided
       if (!computedNextDue && input.recurrence_rule) {
         const rule = parseRule(input.recurrence_rule);
         const nd = nextDue(rule, new Date());
@@ -130,9 +122,9 @@ export class ScheduleService implements IScheduleService {
       };
     });
 
-    const schedules = this.scheduleRepo.insertMany(rows);
+    const schedules = await this.scheduleRepo.insertMany(rows);
     for (const s of schedules) {
-      this.activityLog.insert({
+      await this.activityLog.insert({
         entity_type: "schedule",
         entity_id: s.id,
         action: "created",
@@ -150,12 +142,11 @@ export class ScheduleService implements IScheduleService {
     return schedules;
   }
 
-  update(inputs: UpdateScheduleInput[]): Schedule[] {
+  async update(inputs: UpdateScheduleInput[]): Promise<Schedule[]> {
     for (const input of inputs) {
-      const existing = this.scheduleRepo.findById(input.id);
+      const existing = await this.scheduleRepo.findById(input.id);
       if (!existing) throw new ServiceError(`schedule not found: ${input.id}`, 404);
 
-      // Validate recurrence_type if provided
       if (
         input.recurrence_type !== undefined &&
         !(RECURRENCE_TYPES as readonly string[]).includes(input.recurrence_type)
@@ -166,12 +157,10 @@ export class ScheduleService implements IScheduleService {
         );
       }
 
-      // Validate recurrence_rule if provided (and not null — null clears it)
       if (input.recurrence_rule !== undefined && input.recurrence_rule !== null) {
-        parseRule(input.recurrence_rule); // throws ServiceError on invalid
+        parseRule(input.recurrence_rule);
       }
 
-      // Enforce recurrence_type / recurrence_rule consistency
       if (input.recurrence_rule !== undefined && input.recurrence_rule !== null) {
         const parsedRule = parseRule(input.recurrence_rule);
         const effectiveType = input.recurrence_type ?? existing.recurrence_type;
@@ -182,7 +171,6 @@ export class ScheduleService implements IScheduleService {
           );
         }
       } else if (input.recurrence_type !== undefined && input.recurrence_rule === undefined) {
-        // Changing type without updating rule -- check existing rule
         if (existing.recurrence_rule) {
           const parsedExisting = parseRule(existing.recurrence_rule);
           if (input.recurrence_type !== parsedExisting.type) {
@@ -194,7 +182,6 @@ export class ScheduleService implements IScheduleService {
         }
       }
 
-      // Validate next_due if provided (and not null — null clears it)
       if (input.next_due !== undefined && input.next_due !== null) {
         if (!isValidDateString(input.next_due)) {
           throw new ServiceError("next_due must be a valid ISO date (YYYY-MM-DD)", 400);
@@ -202,12 +189,12 @@ export class ScheduleService implements IScheduleService {
       }
     }
 
-    const schedules = this.scheduleRepo.updateMany(inputs);
+    const schedules = await this.scheduleRepo.updateMany(inputs);
     for (const s of schedules) {
       const fields = Object.keys(inputs.find((i) => i.id === s.id) ?? {}).filter(
         (k) => k !== "id"
       );
-      this.activityLog.insert({
+      await this.activityLog.insert({
         entity_type: "schedule",
         entity_id: s.id,
         action: "updated",
@@ -222,10 +209,10 @@ export class ScheduleService implements IScheduleService {
     return schedules;
   }
 
-  remove(ids: string[]): number {
-    const deleted = this.scheduleRepo.deleteMany(ids);
+  async remove(ids: string[]): Promise<number> {
+    const deleted = await this.scheduleRepo.deleteMany(ids);
     for (const id of ids) {
-      this.activityLog.insert({
+      await this.activityLog.insert({
         entity_type: "schedule",
         entity_id: id,
         action: "deleted",
@@ -236,27 +223,23 @@ export class ScheduleService implements IScheduleService {
     return deleted;
   }
 
-  advance(id: string): Schedule {
-    const schedule = this.scheduleRepo.findById(id);
+  async advance(id: string): Promise<Schedule> {
+    const schedule = await this.scheduleRepo.findById(id);
     if (!schedule) throw new ServiceError("schedule not found", 404);
 
     const today = formatDate(new Date());
     let newNextDue: string | null = null;
 
     if (schedule.recurrence_type === "once") {
-      // One-off schedule is exhausted after completion
       newNextDue = null;
     } else if (schedule.recurrence_rule) {
-      // Compute next due from the previous next_due (not from today).
-      // This ensures overdue tasks advance correctly from their last
-      // scheduled date rather than from the current wall-clock time.
       const rule = parseRule(schedule.recurrence_rule);
       const refDate = schedule.next_due ? parseDate(schedule.next_due) : new Date();
       const nd = nextDue(rule, refDate);
       newNextDue = nd ? formatDate(nd) : null;
     }
 
-    const [updated] = this.scheduleRepo.updateMany([
+    const [updated] = await this.scheduleRepo.updateMany([
       {
         id: schedule.id,
         last_completed: today,
@@ -264,7 +247,7 @@ export class ScheduleService implements IScheduleService {
       },
     ]);
 
-    this.activityLog.insert({
+    await this.activityLog.insert({
       entity_type: "schedule",
       entity_id: schedule.id,
       action: "completed",

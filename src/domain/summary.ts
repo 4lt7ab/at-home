@@ -48,42 +48,31 @@ function addDays(dateStr: string, days: number): string {
 
 // -- buildDailySummary ------------------------------------------------------
 
-/**
- * Aggregates overdue, due-today, and upcoming items from the schedule, task,
- * and note repositories into a single DailySummary structure.
- *
- * This is a pure domain function — it reads from repositories but performs
- * no mutations.
- */
-export function buildDailySummary(
+export async function buildDailySummary(
   date: string,
   lookaheadDays: number,
   scheduleRepo: ScheduleRepository,
   taskRepo: HomeTaskRepository,
   noteRepo: NoteRepository,
-): DailySummary {
-  // 1. Fetch schedules that are due or overdue (next_due <= date)
-  const dueOrOverdueSchedules = scheduleRepo.findDueOrOverdue(date);
+): Promise<DailySummary> {
+  const dueOrOverdueSchedules = await scheduleRepo.findDueOrOverdue(date);
 
-  // 2. Compute lookahead end date and fetch upcoming schedules
   const endDate = addDays(date, lookaheadDays);
-  const upcomingSchedules = scheduleRepo.findUpcoming(date, endDate);
+  const upcomingSchedules = await scheduleRepo.findUpcoming(date, endDate);
 
-  // 3. Build items for due/overdue schedules, categorizing as overdue or due_today
   const overdue: DailySummaryItem[] = [];
   const dueToday: DailySummaryItem[] = [];
 
   const asOfDate = parseDate(date);
 
   for (const schedule of dueOrOverdueSchedules) {
-    const task = taskRepo.findById(schedule.task_id);
+    const task = await taskRepo.findById(schedule.task_id);
 
-    // Skip if task was deleted or is done/archived/paused
     if (!task || task.status === "done" || task.status === "archived" || task.status === "paused") {
       continue;
     }
 
-    const notes = noteRepo.findByTaskId(schedule.task_id);
+    const notes = await noteRepo.findByTaskId(schedule.task_id);
     const daysOver = schedule.next_due ? calcDaysOverdue(schedule.next_due, asOfDate) : 0;
     const label = recurrenceLabel(schedule.recurrence_rule);
 
@@ -98,22 +87,20 @@ export function buildDailySummary(
     if (schedule.next_due && schedule.next_due < date) {
       overdue.push(item);
     } else {
-      // next_due == date (due today)
       dueToday.push(item);
     }
   }
 
-  // 4. Build items for upcoming schedules
   const upcoming: DailySummaryItem[] = [];
 
   for (const schedule of upcomingSchedules) {
-    const task = taskRepo.findById(schedule.task_id);
+    const task = await taskRepo.findById(schedule.task_id);
 
     if (!task || task.status === "done" || task.status === "archived" || task.status === "paused") {
       continue;
     }
 
-    const notes = noteRepo.findByTaskId(schedule.task_id);
+    const notes = await noteRepo.findByTaskId(schedule.task_id);
     const label = recurrenceLabel(schedule.recurrence_rule);
 
     upcoming.push({
@@ -125,21 +112,14 @@ export function buildDailySummary(
     });
   }
 
-  // 5. Sort
-  // Overdue: most overdue first (days_overdue descending)
   overdue.sort((a, b) => b.days_overdue - a.days_overdue);
-
-  // Due today: by task title alphabetically
   dueToday.sort((a, b) => a.task.title.localeCompare(b.task.title));
-
-  // Upcoming: by next_due ascending (already ordered from SQL, but ensure stable sort)
   upcoming.sort((a, b) => {
     const aDue = a.schedule.next_due ?? "";
     const bDue = b.schedule.next_due ?? "";
     return aDue.localeCompare(bDue);
   });
 
-  // 6. Assemble and return
   return {
     date,
     overdue,

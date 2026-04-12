@@ -10,7 +10,7 @@ export function taskRoutes(service: IHomeTaskService): Hono {
   const app = new Hono();
 
   // GET /api/tasks
-  app.get("/", (c) => {
+  app.get("/", async (c) => {
     const rawLimit = parseInt(c.req.query("limit") ?? "", 10);
     const limit = Number.isFinite(rawLimit) && rawLimit >= 1 ? Math.min(rawLimit, 200) : 50;
     const rawOffset = parseInt(c.req.query("offset") ?? "", 10);
@@ -20,7 +20,6 @@ export function taskRoutes(service: IHomeTaskService): Hono {
     const effort = c.req.query("effort");
     const title = c.req.query("title");
 
-    // Validate enum query params
     if (status) {
       const statuses = status.split(",");
       for (const s of statuses) {
@@ -41,27 +40,27 @@ export function taskRoutes(service: IHomeTaskService): Hono {
     if (area) filter.area = area;
     if (effort) filter.effort = effort;
     if (title) filter.title = title;
-    return c.json(service.list(filter));
+    return c.json(await service.list(filter));
   });
 
   // POST /api/tasks
   app.post("/", async (c) => {
     const body = await c.req.json<{ items: CreateHomeTaskInput[] }>();
     if (!Array.isArray(body.items)) return c.json({ error: "items array is required" }, 400);
-    const tasks = service.create(body.items);
+    const tasks = await service.create(body.items);
     return c.json(tasks, 201);
   });
 
   // GET /api/tasks/:id
-  app.get("/:id", (c) => {
-    return c.json(service.get(c.req.param("id")));
+  app.get("/:id", async (c) => {
+    return c.json(await service.get(c.req.param("id")));
   });
 
   // PATCH /api/tasks
   app.patch("/", async (c) => {
     const body = await c.req.json<{ items: UpdateHomeTaskInput[] }>();
     if (!Array.isArray(body.items)) return c.json({ error: "items array is required" }, 400);
-    const tasks = service.update(body.items);
+    const tasks = await service.update(body.items);
     return c.json(tasks);
   });
 
@@ -69,7 +68,7 @@ export function taskRoutes(service: IHomeTaskService): Hono {
   app.delete("/", async (c) => {
     const body = await c.req.json<{ ids: string[] }>();
     if (!Array.isArray(body.ids)) return c.json({ error: "ids array is required" }, 400);
-    service.remove(body.ids);
+    await service.remove(body.ids);
     return c.body(null, 204);
   });
 

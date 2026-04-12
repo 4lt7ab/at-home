@@ -1,4 +1,4 @@
-import type { Database } from "bun:sqlite";
+import type { Sql } from "../db/connection";
 import { ulid } from "ulid";
 import type { HomeTask } from "../entities";
 
@@ -17,115 +17,80 @@ function escapeLike(s: string): string {
 }
 
 export class HomeTaskRepository {
-  constructor(private db: Database) {}
+  constructor(private sql: Sql) {}
 
-  findById(id: string): HomeTask | null {
-    return this.db.query("SELECT * FROM home_tasks WHERE id = ?").get(id) as HomeTask | null;
+  async findById(id: string): Promise<HomeTask | null> {
+    const [row] = await this.sql<HomeTask[]>`SELECT * FROM home_tasks WHERE id = ${id}`;
+    return row ?? null;
   }
 
-  findMany(filter?: HomeTaskFilter): HomeTask[] {
+  async findMany(filter?: HomeTaskFilter): Promise<HomeTask[]> {
     const limit = filter?.limit ?? 50;
     const offset = filter?.offset ?? 0;
-    const conditions: string[] = [];
-    const params: (string | number)[] = [];
+    const parts: any[] = [];
 
-    if (filter?.id) {
-      conditions.push("id = ?");
-      params.push(filter.id);
-    }
+    if (filter?.id) parts.push(this.sql`id = ${filter.id}`);
     if (filter?.status) {
       const statuses = filter.status.split(",");
-      if (statuses.length === 1) {
-        conditions.push("status = ?");
-        params.push(statuses[0]);
-      } else {
-        conditions.push(`status IN (${statuses.map(() => "?").join(", ")})`);
-        params.push(...statuses);
-      }
+      parts.push(this.sql`status = ANY(${statuses})`);
     }
-    if (filter?.area) {
-      conditions.push("area = ?");
-      params.push(filter.area);
-    }
-    if (filter?.effort) {
-      conditions.push("effort = ?");
-      params.push(filter.effort);
-    }
-    if (filter?.title) {
-      conditions.push("title LIKE ? ESCAPE '\\'");
-      params.push(`%${escapeLike(filter.title)}%`);
-    }
+    if (filter?.area) parts.push(this.sql`area = ${filter.area}`);
+    if (filter?.effort) parts.push(this.sql`effort = ${filter.effort}`);
+    if (filter?.title) parts.push(this.sql`title ILIKE ${"%" + escapeLike(filter.title) + "%"}`);
 
-    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")} ` : "";
-    params.push(limit, offset);
+    const where = parts.length > 0
+      ? this.sql`WHERE ${parts.reduce((a, b) => this.sql`${a} AND ${b}`)}`
+      : this.sql``;
 
-    return this.db
-      .query(`SELECT * FROM home_tasks ${where}ORDER BY created_at ASC LIMIT ? OFFSET ?`)
-      .all(...params) as HomeTask[];
+    return await this.sql<HomeTask[]>`
+      SELECT * FROM home_tasks ${where}
+      ORDER BY created_at ASC LIMIT ${limit} OFFSET ${offset}
+    `;
   }
 
-  count(filter?: Omit<HomeTaskFilter, "limit" | "offset">): number {
-    const conditions: string[] = [];
-    const params: string[] = [];
+  async count(filter?: Omit<HomeTaskFilter, "limit" | "offset">): Promise<number> {
+    const parts: any[] = [];
 
-    if (filter?.id) {
-      conditions.push("id = ?");
-      params.push(filter.id);
-    }
+    if (filter?.id) parts.push(this.sql`id = ${filter.id}`);
     if (filter?.status) {
       const statuses = filter.status.split(",");
-      if (statuses.length === 1) {
-        conditions.push("status = ?");
-        params.push(statuses[0]);
-      } else {
-        conditions.push(`status IN (${statuses.map(() => "?").join(", ")})`);
-        params.push(...statuses);
-      }
+      parts.push(this.sql`status = ANY(${statuses})`);
     }
-    if (filter?.area) {
-      conditions.push("area = ?");
-      params.push(filter.area);
-    }
-    if (filter?.effort) {
-      conditions.push("effort = ?");
-      params.push(filter.effort);
-    }
-    if (filter?.title) {
-      conditions.push("title LIKE ? ESCAPE '\\'");
-      params.push(`%${escapeLike(filter.title)}%`);
-    }
+    if (filter?.area) parts.push(this.sql`area = ${filter.area}`);
+    if (filter?.effort) parts.push(this.sql`effort = ${filter.effort}`);
+    if (filter?.title) parts.push(this.sql`title ILIKE ${"%" + escapeLike(filter.title) + "%"}`);
 
-    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")} ` : "";
+    const where = parts.length > 0
+      ? this.sql`WHERE ${parts.reduce((a, b) => this.sql`${a} AND ${b}`)}`
+      : this.sql``;
 
-    return (
-      this.db
-        .query(`SELECT COUNT(*) as total FROM home_tasks ${where}`)
-        .get(...params) as { total: number }
-    ).total;
+    const [row] = await this.sql<{ total: number }[]>`SELECT COUNT(*)::int as total FROM home_tasks ${where}`;
+    return row.total;
   }
 
-  insertMany(rows: Omit<HomeTask, "id" | "created_at" | "updated_at">[]): HomeTask[] {
-    const stmt = this.db.query(
-      "INSERT INTO home_tasks (id, title, description, status, area, effort, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-    );
-    const now = new Date().toISOString();
-    const ids: string[] = [];
-
-    for (const row of rows) {
-      const id = ulid();
-      ids.push(id);
-      stmt.run(id, row.title, row.description ?? null, row.status, row.area ?? null, row.effort ?? null, now, now);
-    }
-
-    return ids.map((id) => this.findById(id)!);
-  }
-
-  updateMany(rows: { id: string; title?: string; description?: string | null; status?: string; area?: string | null; effort?: string | null }[]): HomeTask[] {
+  async insertMany(rows: Omit<HomeTask, "id" | "created_at" | "updated_at">[]): Promise<HomeTask[]> {
     const now = new Date().toISOString();
     const results: HomeTask[] = [];
 
     for (const row of rows) {
-      const existing = this.findById(row.id);
+      const id = ulid();
+      const [inserted] = await this.sql<HomeTask[]>`
+        INSERT INTO home_tasks (id, title, description, status, area, effort, created_at, updated_at)
+        VALUES (${id}, ${row.title}, ${row.description ?? null}, ${row.status}, ${row.area ?? null}, ${row.effort ?? null}, ${now}, ${now})
+        RETURNING *
+      `;
+      results.push(inserted);
+    }
+
+    return results;
+  }
+
+  async updateMany(rows: { id: string; title?: string; description?: string | null; status?: string; area?: string | null; effort?: string | null }[]): Promise<HomeTask[]> {
+    const now = new Date().toISOString();
+    const results: HomeTask[] = [];
+
+    for (const row of rows) {
+      const existing = await this.findById(row.id);
       if (!existing) continue;
 
       const title = row.title !== undefined ? row.title : existing.title;
@@ -134,20 +99,21 @@ export class HomeTaskRepository {
       const area = row.area !== undefined ? row.area : existing.area;
       const effort = row.effort !== undefined ? row.effort : existing.effort;
 
-      this.db
-        .query("UPDATE home_tasks SET title = ?, description = ?, status = ?, area = ?, effort = ?, updated_at = ? WHERE id = ?")
-        .run(title, description, status, area, effort, now, row.id);
-
-      results.push(this.findById(row.id)!);
+      const [updated] = await this.sql<HomeTask[]>`
+        UPDATE home_tasks SET title = ${title}, description = ${description}, status = ${status},
+          area = ${area}, effort = ${effort}, updated_at = ${now}
+        WHERE id = ${row.id}
+        RETURNING *
+      `;
+      results.push(updated);
     }
 
     return results;
   }
 
-  deleteMany(ids: string[]): number {
+  async deleteMany(ids: string[]): Promise<number> {
     if (ids.length === 0) return 0;
-    const placeholders = ids.map(() => "?").join(", ");
-    this.db.query(`DELETE FROM home_tasks WHERE id IN (${placeholders})`).run(...ids);
-    return (this.db.query("SELECT changes() as c").get() as { c: number }).c;
+    const result = await this.sql`DELETE FROM home_tasks WHERE id = ANY(${ids})`;
+    return result.count;
   }
 }

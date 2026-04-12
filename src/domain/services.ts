@@ -14,26 +14,26 @@ export interface Paginated<T> {
 }
 
 export interface IHomeTaskService {
-  list(filter?: { id?: string; status?: string; area?: string; effort?: string; title?: string; limit?: number; offset?: number }): Paginated<HomeTaskSummary>;
-  get(id: string): HomeTask;
-  create(inputs: CreateHomeTaskInput[]): HomeTask[];
-  update(inputs: UpdateHomeTaskInput[]): HomeTask[];
-  remove(ids: string[]): number;
+  list(filter?: { id?: string; status?: string; area?: string; effort?: string; title?: string; limit?: number; offset?: number }): Promise<Paginated<HomeTaskSummary>>;
+  get(id: string): Promise<HomeTask>;
+  create(inputs: CreateHomeTaskInput[]): Promise<HomeTask[]>;
+  update(inputs: UpdateHomeTaskInput[]): Promise<HomeTask[]>;
+  remove(ids: string[]): Promise<number>;
 }
 
 export interface INoteService {
-  list(filter?: { id?: string; task_id?: string; title?: string; note_type?: NoteType; limit?: number; offset?: number }): Paginated<NoteSummary>;
-  get(id: string): Note;
-  create(inputs: CreateNoteInput[]): Note[];
-  update(inputs: UpdateNoteInput[]): Note[];
-  remove(ids: string[]): number;
+  list(filter?: { id?: string; task_id?: string; title?: string; note_type?: NoteType; limit?: number; offset?: number }): Promise<Paginated<NoteSummary>>;
+  get(id: string): Promise<Note>;
+  create(inputs: CreateNoteInput[]): Promise<Note[]>;
+  update(inputs: UpdateNoteInput[]): Promise<Note[]>;
+  remove(ids: string[]): Promise<number>;
 }
 
 export interface IScheduleService {
-  list(filter?: { id?: string; task_id?: string; recurrence_type?: string; limit?: number; offset?: number }): Paginated<ScheduleSummary>;
-  get(id: string): Schedule;
-  create(inputs: CreateScheduleInput[]): Schedule[];
-  update(inputs: UpdateScheduleInput[]): Schedule[];
-  remove(ids: string[]): number;
-  advance(id: string): Schedule;
+  list(filter?: { id?: string; task_id?: string; recurrence_type?: string; limit?: number; offset?: number }): Promise<Paginated<ScheduleSummary>>;
+  get(id: string): Promise<Schedule>;
+  create(inputs: CreateScheduleInput[]): Promise<Schedule[]>;
+  update(inputs: UpdateScheduleInput[]): Promise<Schedule[]>;
+  remove(ids: string[]): Promise<number>;
+  advance(id: string): Promise<Schedule>;
 }

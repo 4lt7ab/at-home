@@ -3,22 +3,22 @@ import { networkInterfaces } from "os";
 export interface ServerOptions {
   port: number;
   host: string;
-  dbPath?: string;
+  databaseUrl?: string;
 }
 
 export function parseArgs(defaults: { port: number; portEnv: string }): ServerOptions {
   const args = process.argv.slice(2);
   let port = Number(process.env[defaults.portEnv]) || defaults.port;
   let host = process.env.HOME_HOST ?? "0.0.0.0";
-  let dbPath: string | undefined = process.env.SQLITE_PATH;
+  let databaseUrl: string | undefined = process.env.DATABASE_URL;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--port" && args[i + 1]) port = Number(args[++i]);
     if (args[i] === "--host" && args[i + 1]) host = args[++i];
-    if (args[i] === "--sqlite-path" && args[i + 1]) dbPath = args[++i];
+    if (args[i] === "--database-url" && args[i + 1]) databaseUrl = args[++i];
   }
 
-  return { port, host, dbPath };
+  return { port, host, databaseUrl };
 }
 
 export function getNetworkAddress(): string | undefined {

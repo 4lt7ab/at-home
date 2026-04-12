@@ -1,29 +1,34 @@
 import { useState } from "react";
+import {
+  semantic as t, Card, Badge, Button, Stack, Skeleton, EmptyState,
+  Input, Select, Textarea, ModalShell, StatusDot,
+} from "@4lt7ab/ui/ui";
 import { TASK_STATUSES, AREAS } from "@domain/entities";
 import type { HomeTaskSummary } from "@domain/entities";
 import { useTasks } from "../hooks";
-import type { ViewMode } from "../hooks";
 import { createTasks } from "../api";
-import { useTheme } from "../components/theme";
-import { Button, Input, Select, Textarea, StatusDot, Badge, Skeleton } from "../components/atoms";
-import { Card, Stack, EmptyState } from "../components/molecules";
-import { ModalShell } from "../components/organisms";
-import { ListPageLayout } from "../components/templates";
+
+// ---------------------------------------------------------------------------
+// Props
+// ---------------------------------------------------------------------------
+
+interface Props {
+  onNavigate: (path: string) => void;
+}
 
 // ---------------------------------------------------------------------------
 // CreateTaskOverlay
 // ---------------------------------------------------------------------------
 
-function CreateTaskOverlay({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const { theme } = useTheme();
+function CreateTaskOverlay({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }): React.JSX.Element {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [area, setArea] = useState<string>("");
-  const [effort, setEffort] = useState<string>("");
+  const [area, setArea] = useState("");
+  const [effort, setEffort] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
     if (!title.trim()) return;
     setError(null);
@@ -37,46 +42,24 @@ function CreateTaskOverlay({ onClose, onCreated }: { onClose: () => void; onCrea
       }]);
       onCreated();
       onClose();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "An unexpected error occurred");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create task");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <ModalShell onClose={onClose} maxWidth={400}>
+    <ModalShell onClose={onClose}>
       <form onSubmit={handleSubmit}>
-        <h3
-          style={{
-            fontSize: theme.font.size.md,
-            fontWeight: 600,
-            marginBottom: theme.spacing.lg,
-            fontFamily: theme.font.headline,
-            color: theme.color.text,
-          }}
-        >
-          New Task
-        </h3>
-        <Stack direction="column" gap="sm">
-          <Input
-            placeholder="Task title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            autoFocus
-          />
-          <Textarea
-            rows={3}
-            placeholder="Description (optional)"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-          <Stack direction="row" gap="sm">
+        <h3 style={{ fontSize: t.fontSizeLg, fontWeight: 600, marginBottom: t.spaceLg }}>New Task</h3>
+        <Stack gap="sm">
+          <Input placeholder="Task title" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+          <Textarea rows={3} placeholder="Description (optional)" value={description} onChange={(e) => setDescription(e.target.value)} />
+          <Stack gap="sm" direction="row">
             <Select style={{ flex: 1 }} value={area} onChange={(e) => setArea(e.target.value)}>
               <option value="">Area...</option>
-              {AREAS.map((a) => (
-                <option key={a} value={a}>{a.replace(/_/g, " ")}</option>
-              ))}
+              {AREAS.map((a) => <option key={a} value={a}>{a.replace(/_/g, " ")}</option>)}
             </Select>
             <Select style={{ flex: 1 }} value={effort} onChange={(e) => setEffort(e.target.value)}>
               <option value="">Effort...</option>
@@ -87,23 +70,10 @@ function CreateTaskOverlay({ onClose, onCreated }: { onClose: () => void; onCrea
             </Select>
           </Stack>
         </Stack>
-        {error && (
-          <div
-            style={{
-              color: theme.color.danger,
-              fontSize: theme.font.size.xs,
-              marginTop: theme.spacing.xs,
-              marginBottom: theme.spacing.xs,
-            }}
-          >
-            {error}
-          </div>
-        )}
-        <Stack direction="row" gap="sm" justify="flex-end" style={{ marginTop: theme.spacing.md }}>
-          <Button variant="ghost" type="button" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" type="submit" loading={busy}>
-            {busy ? "Creating..." : "Create"}
-          </Button>
+        {error && <div style={{ color: t.colorError, fontSize: t.fontSizeXs, marginTop: t.spaceXs }}>{error}</div>}
+        <Stack direction="row" gap="sm" style={{ marginTop: t.spaceLg, justifyContent: "flex-end" }}>
+          <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" type="submit" disabled={busy}>{busy ? "Creating..." : "Create"}</Button>
         </Stack>
       </form>
     </ModalShell>
@@ -114,71 +84,39 @@ function CreateTaskOverlay({ onClose, onCreated }: { onClose: () => void; onCrea
 // TaskCard
 // ---------------------------------------------------------------------------
 
-function TaskCard({ task, onClick, gallery }: { task: HomeTaskSummary; onClick: () => void; gallery?: boolean }) {
-  const { theme } = useTheme();
-
+function TaskCard({ task, onClick }: { task: HomeTaskSummary; onClick: () => void }): React.JSX.Element {
   return (
-    <Card
-      hover
-      onClick={onClick}
-      style={gallery ? undefined : { marginBottom: theme.spacing.sm }}
-    >
-      <div
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => e.key === "Enter" && onClick()}
-        style={{ outline: "none" }}
-      >
-        <div
-          style={{
-            fontSize: theme.font.size.sm,
-            fontWeight: 500,
-            color: theme.color.text,
-            fontFamily: theme.font.body,
-          }}
-        >
-          {task.title}
-        </div>
-        <Stack direction="row" gap="xs" align="center" style={{ marginTop: theme.spacing.xs }}>
-          <StatusDot status={task.status} />
-          {task.area && (
-            <Badge variant="area">{task.area.replace(/_/g, " ")}</Badge>
-          )}
-          {task.effort && (
-            <Badge variant="effort">{task.effort}</Badge>
-          )}
-        </Stack>
-        {gallery && task.has_description && (
-          <div
-            style={{
-              fontSize: theme.font.size.xs,
-              color: theme.color.textMuted,
-              marginTop: theme.spacing.sm,
-              lineHeight: theme.font.lineHeight.tight,
-              overflow: "hidden",
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical" as const,
-            }}
-          >
-            Has description
+    <Card onClick={onClick} style={{ cursor: "pointer" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontSize: t.fontSizeMd, fontWeight: 500 }}>{task.title}</div>
+          <div style={{ display: "flex", gap: t.spaceXs, marginTop: t.spaceXs, flexWrap: "wrap" }}>
+            <StatusDot status={task.status} color={statusColor(task.status)} size="sm" />
+            <Badge variant="secondary">{task.status}</Badge>
+            {task.area && <Badge variant="secondary">{task.area.replace(/_/g, " ")}</Badge>}
+            {task.effort && <Badge variant="secondary">{task.effort}</Badge>}
           </div>
-        )}
+        </div>
       </div>
     </Card>
   );
+}
+
+function statusColor(status: string): string {
+  switch (status) {
+    case "active": return "green";
+    case "paused": return "yellow";
+    case "done": return "blue";
+    case "archived": return "gray";
+    default: return "gray";
+  }
 }
 
 // ---------------------------------------------------------------------------
 // TaskListPage
 // ---------------------------------------------------------------------------
 
-export function TaskListPage({ onNavigate, viewMode, onToggleViewMode }: {
-  onNavigate: (to: string) => void;
-  viewMode: ViewMode;
-  onToggleViewMode: () => void;
-}) {
-  const { theme } = useTheme();
+export function TaskListPage({ onNavigate }: Props): React.JSX.Element {
   const [statusFilter, setStatusFilter] = useState<string>("active");
   const [areaFilter, setAreaFilter] = useState<string>("");
   const [showCreate, setShowCreate] = useState(false);
@@ -190,70 +128,27 @@ export function TaskListPage({ onNavigate, viewMode, onToggleViewMode }: {
   const { tasks, loading, error, refetch } = useTasks(params as never);
 
   return (
-    <ListPageLayout>
-      <Stack direction="row" align="center" justify="space-between" style={{ marginBottom: theme.spacing.lg }}>
-        <h1
-          style={{
-            fontSize: theme.font.size.lg,
-            fontWeight: 600,
-            fontFamily: theme.font.headline,
-            color: theme.color.text,
-          }}
-        >
-          Tasks
-        </h1>
-        <Stack direction="row" align="center" gap="sm">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onToggleViewMode}
-            title={`Toggle view (Shift+G) — ${viewMode === "list" ? "List" : "Gallery"}`}
-          >
-            <span>{viewMode === "list" ? "\u2630" : "\u2637"}</span>
-            <span>{viewMode === "list" ? "List" : "Grid"}</span>
-          </Button>
-          <Button variant="primary" size="sm" onClick={() => setShowCreate(true)}>+ New Task</Button>
-        </Stack>
-      </Stack>
+    <PageShell>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: t.spaceLg }}>
+        <h1 style={{ fontSize: t.fontSize2xl, fontWeight: 700, margin: 0 }}>Tasks</h1>
+        <Button variant="primary" size="sm" onClick={() => setShowCreate(true)}>+ New Task</Button>
+      </div>
 
-      <Stack direction="row" gap="sm" wrap style={{ marginBottom: theme.spacing.lg }}>
-        <Select
-          style={{ width: "auto" }}
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-        >
+      <Stack direction="row" gap="sm" style={{ marginBottom: t.spaceLg }}>
+        <Select style={{ width: "auto" }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
           <option value="">All statuses</option>
-          {TASK_STATUSES.map((st) => (
-            <option key={st} value={st}>{st}</option>
-          ))}
+          {TASK_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
         </Select>
-        <Select
-          style={{ width: "auto" }}
-          value={areaFilter}
-          onChange={(e) => setAreaFilter(e.target.value)}
-        >
+        <Select style={{ width: "auto" }} value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)}>
           <option value="">All areas</option>
-          {AREAS.map((a) => (
-            <option key={a} value={a}>{a.replace(/_/g, " ")}</option>
-          ))}
+          {AREAS.map((a) => <option key={a} value={a}>{a.replace(/_/g, " ")}</option>)}
         </Select>
       </Stack>
 
-      {error && (
-        <div
-          style={{
-            color: theme.color.danger,
-            marginBottom: theme.spacing.md,
-            fontSize: theme.font.size.sm,
-            fontFamily: theme.font.body,
-          }}
-        >
-          {error}
-        </div>
-      )}
+      {error && <div style={{ color: t.colorError, fontSize: t.fontSizeSm, marginBottom: t.spaceMd }}>{error}</div>}
 
       {loading && tasks.length === 0 && (
-        <Stack direction="column" gap="sm">
+        <Stack gap="sm">
           <Skeleton height={56} />
           <Skeleton height={56} />
           <Skeleton height={56} />
@@ -261,39 +156,32 @@ export function TaskListPage({ onNavigate, viewMode, onToggleViewMode }: {
       )}
 
       {!loading && tasks.length === 0 && (
-        <EmptyState
-          icon="task_alt"
-          message="No tasks found. Create one to get started."
-        />
+        <EmptyState icon="search" message="No tasks found">Create one to get started.</EmptyState>
       )}
 
-      <div
-        style={
-          viewMode === "gallery"
-            ? {
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-                gap: theme.spacing.md,
-              }
-            : undefined
-        }
-      >
+      <Stack gap="sm">
         {tasks.map((task) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            onClick={() => onNavigate(`/tasks/${task.id}`)}
-            gallery={viewMode === "gallery"}
-          />
+          <TaskCard key={task.id} task={task} onClick={() => onNavigate(`/tasks/${task.id}`)} />
         ))}
-      </div>
+      </Stack>
 
-      {showCreate && (
-        <CreateTaskOverlay
-          onClose={() => setShowCreate(false)}
-          onCreated={refetch}
-        />
-      )}
-    </ListPageLayout>
+      {showCreate && <CreateTaskOverlay onClose={() => setShowCreate(false)} onCreated={refetch} />}
+    </PageShell>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// PageShell
+// ---------------------------------------------------------------------------
+
+function PageShell({ children }: { children: React.ReactNode }): React.JSX.Element {
+  return (
+    <div style={{
+      maxWidth: 800,
+      margin: "0 auto",
+      padding: `${t.spaceXl} ${t.spaceLg}`,
+    }}>
+      {children}
+    </div>
   );
 }

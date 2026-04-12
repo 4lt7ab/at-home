@@ -1,14 +1,11 @@
 import { useState, useEffect } from "react";
+import {
+  semantic as t, Card, Badge, Button, Stack, Skeleton, EmptyState,
+  Input, Select, Textarea, ModalShell,
+} from "@4lt7ab/ui/ui";
 import type { NoteSummary, HomeTaskSummary } from "@domain/entities";
 import { useNotes } from "../hooks";
-import type { ViewMode } from "../hooks";
 import { createNotes, fetchTasks } from "../api";
-import { useTheme } from "../components/theme";
-import { Button, Input, Textarea, Select, Badge } from "../components/atoms";
-import { Stack, EmptyState } from "../components/molecules";
-import { ModalShell } from "../components/organisms";
-import { ListPageLayout } from "../components/templates";
-import { ContentCard } from "../components/ContentCard";
 
 // ---------------------------------------------------------------------------
 // CreateNoteOverlay
@@ -18,15 +15,14 @@ function CreateNoteOverlay({ tasks, onClose, onCreated }: {
   tasks: HomeTaskSummary[];
   onClose: () => void;
   onCreated: () => void;
-}) {
-  const { theme } = useTheme();
+}): React.JSX.Element {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [taskId, setTaskId] = useState<string>("");
+  const [taskId, setTaskId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
     if (!title.trim()) return;
     setError(null);
@@ -39,54 +35,29 @@ function CreateNoteOverlay({ tasks, onClose, onCreated }: {
       }]);
       onCreated();
       onClose();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "An unexpected error occurred");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create note");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <ModalShell onClose={onClose} maxWidth={400}>
+    <ModalShell onClose={onClose}>
       <form onSubmit={handleSubmit}>
-        <h3 style={{
-          fontSize: theme.font.size.md,
-          fontWeight: 600,
-          marginBottom: theme.spacing.lg,
-          color: theme.color.text,
-          fontFamily: theme.font.body,
-        }}>New Note</h3>
-        <Stack direction="column" gap="md">
-          <Input
-            placeholder="Note title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            autoFocus
-          />
-          <Textarea
-            rows={4}
-            placeholder="Content (optional)"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-          />
+        <h3 style={{ fontSize: t.fontSizeLg, fontWeight: 600, marginBottom: t.spaceLg }}>New Note</h3>
+        <Stack gap="sm">
+          <Input placeholder="Note title" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+          <Textarea rows={4} placeholder="Content (optional)" value={content} onChange={(e) => setContent(e.target.value)} />
           <Select value={taskId} onChange={(e) => setTaskId(e.target.value)}>
             <option value="">Standalone (no task)</option>
-            {tasks.map((t) => (
-              <option key={t.id} value={t.id}>{t.title}</option>
-            ))}
+            {tasks.map((task) => <option key={task.id} value={task.id}>{task.title}</option>)}
           </Select>
-          {error && (
-            <div style={{
-              color: theme.color.danger,
-              fontSize: theme.font.size.xs,
-            }}>{error}</div>
-          )}
-          <Stack direction="row" gap="sm" justify="flex-end" style={{ marginTop: theme.spacing.xs }}>
-            <Button variant="ghost" type="button" onClick={onClose}>Cancel</Button>
-            <Button variant="primary" type="submit" loading={busy} disabled={busy}>
-              {busy ? "Creating..." : "Create"}
-            </Button>
-          </Stack>
+        </Stack>
+        {error && <div style={{ color: t.colorError, fontSize: t.fontSizeXs, marginTop: t.spaceXs }}>{error}</div>}
+        <Stack direction="row" gap="sm" style={{ marginTop: t.spaceLg, justifyContent: "flex-end" }}>
+          <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" type="submit" disabled={busy}>{busy ? "Creating..." : "Create"}</Button>
         </Stack>
       </form>
     </ModalShell>
@@ -97,42 +68,20 @@ function CreateNoteOverlay({ tasks, onClose, onCreated }: {
 // NoteCard
 // ---------------------------------------------------------------------------
 
-function NoteCard({ note, taskName, gallery }: { note: NoteSummary; taskName: string | null; gallery?: boolean }) {
-  const { theme } = useTheme();
-
+function NoteCard({ note, taskName }: { note: NoteSummary; taskName: string | null }): React.JSX.Element {
   return (
-    <ContentCard
-      variant={note.note_type === "completion" ? "completion-note" : "note"}
-      compact={gallery}
-    >
-      <div style={{
-        fontSize: theme.font.size.sm,
-        fontWeight: 500,
-        color: theme.color.text,
-        fontFamily: theme.font.body,
-      }}>{note.title}</div>
-      <div style={{ marginTop: theme.spacing.xs }}>
-        {note.note_type === "completion" && (
-          <Badge variant="completion">completion</Badge>
-        )}
-        {taskName ? (
-          <Badge variant="area">{taskName}</Badge>
-        ) : (
-          <Badge variant="standalone">standalone</Badge>
-        )}
-        {note.has_content && (
-          <Badge variant="content">has content</Badge>
-        )}
+    <Card>
+      <div style={{ fontSize: t.fontSizeMd, fontWeight: 500 }}>{note.title}</div>
+      <div style={{ display: "flex", gap: t.spaceXs, marginTop: t.spaceXs, flexWrap: "wrap" }}>
+        {note.note_type === "completion" && <Badge variant="secondary">completion</Badge>}
+        {taskName && <Badge variant="secondary">{taskName}</Badge>}
+        {!taskName && <Badge variant="secondary">standalone</Badge>}
+        {note.has_content && <Badge variant="secondary">has content</Badge>}
       </div>
-      <div style={{
-        fontSize: theme.font.size.xs,
-        color: theme.color.textMuted,
-        marginTop: theme.spacing.xs,
-        fontFamily: theme.font.body,
-      }}>
-        Created: {new Date(note.created_at).toLocaleDateString()}
+      <div style={{ fontSize: t.fontSizeXs, color: t.colorTextMuted, marginTop: t.spaceXs }}>
+        {new Date(note.created_at).toLocaleDateString()}
       </div>
-    </ContentCard>
+    </Card>
   );
 }
 
@@ -140,40 +89,22 @@ function NoteCard({ note, taskName, gallery }: { note: NoteSummary; taskName: st
 // NoteListPage
 // ---------------------------------------------------------------------------
 
-type FilterMode = "all" | "linked" | "standalone" | "manual" | "completion";
+type FilterMode = "all" | "manual" | "completion" | "linked" | "standalone";
 
-export function NoteListPage({ viewMode, onToggleViewMode }: {
-  viewMode: ViewMode;
-  onToggleViewMode: () => void;
-}) {
-  const { theme } = useTheme();
+export function NoteListPage(): React.JSX.Element {
   const [filter, setFilter] = useState<FilterMode>("all");
   const [showCreate, setShowCreate] = useState(false);
   const [allTasks, setAllTasks] = useState<HomeTaskSummary[]>([]);
 
-  // Load all tasks for the task name lookup and creation dropdown (paginate if >200)
   useEffect(() => {
-    fetchTasks({ limit: 200 }).then(async (r) => {
-      let allData = [...r.data];
-      let offset = 200;
-      while (offset < r.total) {
-        const page = await fetchTasks({ limit: 200, offset });
-        allData = allData.concat(page.data);
-        offset += 200;
-      }
-      setAllTasks(allData);
-    }).catch(() => {});
+    fetchTasks({ limit: 200 }).then((r) => setAllTasks(r.data)).catch(() => {});
   }, []);
 
   const { notes, loading, error, refetch } = useNotes({ limit: 200 });
 
-  // Build task name map
   const taskNameMap = new Map<string, string>();
-  for (const t of allTasks) {
-    taskNameMap.set(t.id, t.title);
-  }
+  for (const task of allTasks) taskNameMap.set(task.id, task.title);
 
-  // Filter notes
   const filtered = notes.filter((n) => {
     if (filter === "linked") return n.task_id !== null;
     if (filter === "standalone") return n.task_id === null;
@@ -183,33 +114,17 @@ export function NoteListPage({ viewMode, onToggleViewMode }: {
   });
 
   return (
-    <ListPageLayout>
-      <Stack direction="row" align="center" justify="space-between" style={{ marginBottom: theme.spacing.lg }}>
-        <h1 style={{
-          fontSize: theme.font.size.lg,
-          fontWeight: 600,
-          color: theme.color.text,
-          fontFamily: theme.font.headline,
-        }}>Notes</h1>
-        <Stack direction="row" align="center" gap="sm">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onToggleViewMode}
-            title={`Toggle view (Shift+G) — ${viewMode === "list" ? "List" : "Gallery"}`}
-          >
-            <span>{viewMode === "list" ? "\u2630" : "\u2637"}</span>
-            <span>{viewMode === "list" ? "List" : "Grid"}</span>
-          </Button>
-          <Button variant="primary" size="sm" onClick={() => setShowCreate(true)}>+ New Note</Button>
-        </Stack>
-      </Stack>
+    <PageShell>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: t.spaceLg }}>
+        <h1 style={{ fontSize: t.fontSize2xl, fontWeight: 700, margin: 0 }}>Notes</h1>
+        <Button variant="primary" size="sm" onClick={() => setShowCreate(true)}>+ New Note</Button>
+      </div>
 
-      <Stack direction="row" gap="sm" wrap style={{ marginBottom: theme.spacing.lg }}>
+      <Stack direction="row" gap="xs" style={{ marginBottom: t.spaceLg }}>
         {(["all", "manual", "completion", "linked", "standalone"] as FilterMode[]).map((f) => (
           <Button
             key={f}
-            variant={filter === f ? "primary" : "ghost"}
+            variant={filter === f ? "primary" : "secondary"}
             size="sm"
             onClick={() => setFilter(f)}
           >
@@ -218,37 +133,28 @@ export function NoteListPage({ viewMode, onToggleViewMode }: {
         ))}
       </Stack>
 
-      {error && (
-        <div style={{
-          color: theme.color.danger,
-          marginBottom: theme.spacing.md,
-          fontSize: theme.font.size.sm,
-          fontFamily: theme.font.body,
-        }}>{error}</div>
-      )}
+      {error && <div style={{ color: t.colorError, fontSize: t.fontSizeSm, marginBottom: t.spaceMd }}>{error}</div>}
 
       {loading && notes.length === 0 && (
-        <EmptyState icon="hourglass_empty" message="Loading notes..." />
+        <Stack gap="sm">
+          <Skeleton height={56} />
+          <Skeleton height={56} />
+        </Stack>
       )}
 
       {!loading && filtered.length === 0 && (
-        <EmptyState icon="note" message="No notes found." />
+        <EmptyState icon="search" message="No notes found">Create one to get started.</EmptyState>
       )}
 
-      <div style={viewMode === "gallery" ? {
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-        gap: theme.spacing.md,
-      } : undefined}>
+      <Stack gap="sm">
         {filtered.map((note) => (
           <NoteCard
             key={note.id}
             note={note}
             taskName={note.task_id ? (taskNameMap.get(note.task_id) ?? null) : null}
-            gallery={viewMode === "gallery"}
           />
         ))}
-      </div>
+      </Stack>
 
       {showCreate && (
         <CreateNoteOverlay
@@ -257,6 +163,22 @@ export function NoteListPage({ viewMode, onToggleViewMode }: {
           onCreated={refetch}
         />
       )}
-    </ListPageLayout>
+    </PageShell>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// PageShell
+// ---------------------------------------------------------------------------
+
+function PageShell({ children }: { children: React.ReactNode }): React.JSX.Element {
+  return (
+    <div style={{
+      maxWidth: 800,
+      margin: "0 auto",
+      padding: `${t.spaceXl} ${t.spaceLg}`,
+    }}>
+      {children}
+    </div>
   );
 }

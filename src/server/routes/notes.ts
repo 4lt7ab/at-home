@@ -11,7 +11,7 @@ export function noteRoutes(service: INoteService): Hono {
   const app = new Hono();
 
   // GET /api/notes
-  app.get("/", (c) => {
+  app.get("/", async (c) => {
     const rawLimit = parseInt(c.req.query("limit") ?? "", 10);
     const limit = Number.isFinite(rawLimit) && rawLimit >= 1 ? Math.min(rawLimit, 200) : 50;
     const rawOffset = parseInt(c.req.query("offset") ?? "", 10);
@@ -25,27 +25,27 @@ export function noteRoutes(service: INoteService): Hono {
     if (note_type && (NOTE_TYPES as readonly string[]).includes(note_type)) {
       filter.note_type = note_type as NoteType;
     }
-    return c.json(service.list(filter));
+    return c.json(await service.list(filter));
   });
 
   // POST /api/notes
   app.post("/", async (c) => {
     const body = await c.req.json<{ items: CreateNoteInput[] }>();
     if (!Array.isArray(body.items)) return c.json({ error: "items array is required" }, 400);
-    const notes = service.create(body.items);
+    const notes = await service.create(body.items);
     return c.json(notes, 201);
   });
 
   // GET /api/notes/:id
-  app.get("/:id", (c) => {
-    return c.json(service.get(c.req.param("id")));
+  app.get("/:id", async (c) => {
+    return c.json(await service.get(c.req.param("id")));
   });
 
   // PATCH /api/notes
   app.patch("/", async (c) => {
     const body = await c.req.json<{ items: UpdateNoteInput[] }>();
     if (!Array.isArray(body.items)) return c.json({ error: "items array is required" }, 400);
-    const notes = service.update(body.items);
+    const notes = await service.update(body.items);
     return c.json(notes);
   });
 
@@ -53,7 +53,7 @@ export function noteRoutes(service: INoteService): Hono {
   app.delete("/", async (c) => {
     const body = await c.req.json<{ ids: string[] }>();
     if (!Array.isArray(body.ids)) return c.json({ error: "ids array is required" }, 400);
-    service.remove(body.ids);
+    await service.remove(body.ids);
     return c.body(null, 204);
   });
 

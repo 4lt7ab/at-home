@@ -6,7 +6,7 @@ export * from "./recurrence";
 export * from "./services";
 export * from "./events";
 export { bootstrap, type AppContext } from "./bootstrap";
-export { createDatabase, getDbPath } from "./db/connection";
+export { createSql, getDatabaseUrl, type Sql } from "./db/connection";
 export { runMigrations } from "./db/migrator";
 export { ActivityLogRepository, type InsertActivityLog } from "./repositories/activity-log";
 export { HomeTaskRepository, type HomeTaskFilter } from "./repositories/home-tasks";

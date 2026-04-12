@@ -7,7 +7,7 @@ export function summaryRoutes(ctx: AppContext): Hono {
   const app = new Hono();
 
   // GET /api/summary
-  app.get("/", (c) => {
+  app.get("/", async (c) => {
     const dateParam = c.req.query("date");
     const lookaheadParam = c.req.query("lookahead_days");
 
@@ -20,7 +20,7 @@ export function summaryRoutes(ctx: AppContext): Hono {
       ? Math.min(rawLookahead, 90)
       : 7;
 
-    const summary = buildDailySummary(date, lookaheadDays, ctx.scheduleRepo, ctx.homeTaskRepo, ctx.noteRepo);
+    const summary = await buildDailySummary(date, lookaheadDays, ctx.scheduleRepo, ctx.homeTaskRepo, ctx.noteRepo);
     return c.json(summary);
   });
 
@@ -31,7 +31,7 @@ export function summaryRoutes(ctx: AppContext): Hono {
       return c.json({ error: "task_id is required" }, 400);
     }
 
-    const result = completeTask(ctx.db, ctx, { task_id: body.task_id, note: body.note });
+    const result = await completeTask(ctx.sql, ctx, { task_id: body.task_id, note: body.note });
     return c.json(result);
   });
 

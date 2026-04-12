@@ -16,10 +16,12 @@ CREATE TABLE notes (
     task_id    TEXT REFERENCES home_tasks(id) ON DELETE SET NULL,
     title      TEXT NOT NULL,
     content    TEXT,
+    note_type  TEXT NOT NULL DEFAULT 'manual',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
 CREATE INDEX idx_notes_task_id ON notes(task_id);
+CREATE INDEX idx_notes_note_type ON notes(note_type);
 
 CREATE TABLE schedules (
     id              TEXT PRIMARY KEY,
@@ -33,3 +35,14 @@ CREATE TABLE schedules (
 );
 CREATE INDEX idx_schedules_task_id ON schedules(task_id);
 CREATE INDEX idx_schedules_next_due ON schedules(next_due);
+
+CREATE TABLE activity_log (
+    id          TEXT PRIMARY KEY,
+    entity_type TEXT NOT NULL,
+    entity_id   TEXT,
+    action      TEXT NOT NULL,
+    summary     TEXT NOT NULL,
+    created_at  TEXT NOT NULL
+);
+CREATE INDEX idx_activity_log_entity ON activity_log(entity_type, entity_id);
+CREATE INDEX idx_activity_log_created_at ON activity_log(created_at);

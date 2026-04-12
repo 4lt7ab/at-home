@@ -5,7 +5,7 @@ export function activityLogRoutes(repo: ActivityLogRepository): Hono {
   const app = new Hono();
 
   // GET /api/activity-log
-  app.get("/", (c) => {
+  app.get("/", async (c) => {
     const entity_type = c.req.query("entity_type");
     const entity_id = c.req.query("entity_id");
     const rawLimit = parseInt(c.req.query("limit") ?? "", 10);
@@ -20,10 +20,12 @@ export function activityLogRoutes(repo: ActivityLogRepository): Hono {
       offset: number;
     };
 
-    return c.json({
-      data: repo.findMany(filter),
-      total: repo.count(filter),
-    });
+    const [data, total] = await Promise.all([
+      repo.findMany(filter),
+      repo.count(filter),
+    ]);
+
+    return c.json({ data, total });
   });
 
   return app;

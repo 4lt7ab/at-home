@@ -1,10 +1,10 @@
-# CLAUDE.md
+# 4lt7ab/at-home
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## What This Is
 
-tab-at-home — a full-stack TypeScript home task management app with recurring schedules, notes, activity tracking, and real-time updates. Runs on Bun with a Hono backend, React frontend, and SQLite database.
+tab-at-home — a full-stack TypeScript home task management app with recurring schedules, notes, activity tracking, and real-time updates. Runs on Bun with a Hono backend, React frontend, and PostgreSQL database.
 
 ## Commands
 
@@ -30,12 +30,12 @@ Clean architecture with three transport layers sharing a common domain:
 
 ```
 Web UI (React/Vite)  ─┐
-HTTP API (Hono)       ─┼─→ Services → Repositories → SQLite (WAL)
+HTTP API (Hono)       ─┼─→ Services → Repositories → PostgreSQL
 MCP Server            ─┘         ↓
                            EventBus → WebSocket broadcast
 ```
 
-**Domain layer** (`src/domain/`): Entities, services, repositories, operations. All business logic lives here. Services implement interfaces (`IHomeTaskService`, etc.) and are wired through `AppContext` (DI container in `bootstrap.ts`).
+**Domain layer** (`src/domain/`): Entities, services, repositories, operations. All business logic lives here. Services implement async interfaces (`IHomeTaskService`, etc.) and are wired through `AppContext` (DI container in `bootstrap.ts`).
 
 **Server layer** (`src/server/`): Hono routes under `/api/*`, WebSocket at `/ws`, MCP at `/mcp`. Serves built web assets in production with SPA fallback.
 
@@ -47,7 +47,8 @@ MCP Server            ─┘         ↓
 
 - **Dependency injection**: `AppContext` in `bootstrap.ts` creates and wires all services/repos
 - **Domain events**: `EventBus` pub-sub for real-time WebSocket broadcast on entity changes
-- **Atomic operations**: `completeTask()` in `src/domain/operations/` uses SQLite transactions for multi-step consistency (update task + advance schedule + create note)
+- **Atomic operations**: `completeTask()` in `src/domain/operations/` uses Postgres transactions for multi-step consistency (update task + advance schedule + create note). Creates transaction-scoped repos/services inside `sql.begin()`.
+- **Async throughout**: All repo and service methods are async (returns `Promise<T>`). The `postgres` library uses tagged template queries.
 - **Recurrence rules**: Discriminated union `RecurrenceRule` with date calculation logic in `recurrence.ts`
 - **Entity summaries**: List endpoints return lightweight DTOs; detail endpoints return full entities
 - **Vite alias**: `@domain` maps to `../domain` so frontend can import domain types
@@ -56,15 +57,16 @@ MCP Server            ─┘         ↓
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `SQLITE_PATH` | (required) | Path to SQLite database file |
+| `DATABASE_URL` | (required) | PostgreSQL connection string |
 | `HOME_HOST` | `0.0.0.0` | Server bind address |
 | `HOME_PORT` | `3100` | Server port |
 | `HOME_CORS_ORIGINS` | — | CSV of allowed CORS origins |
+| `TEST_DATABASE_URL` | `postgres://localhost/tab_at_home_test` | Test database (integration tests) |
 
 ## Tech Stack
 
 - **Runtime**: Bun 1.3+ (see `.tool-versions`)
-- **Backend**: Hono, SQLite (with migrations in `src/domain/db/migrations/`)
+- **Backend**: Hono, PostgreSQL via `postgres` (porsager/postgres), migrations in `src/domain/db/migrations/`
 - **Frontend**: React 19, Vite, TypeScript
 - **Validation**: Zod
 - **IDs**: ULID

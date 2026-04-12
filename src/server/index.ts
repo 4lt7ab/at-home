@@ -31,8 +31,8 @@ export class Server {
 
   async start(): Promise<void> {
     const startedAt = Date.now();
-    const { port, host, dbPath } = this.options;
-    const ctx = await bootstrap(dbPath);
+    const { port, host, databaseUrl } = this.options;
+    const ctx = await bootstrap(databaseUrl);
     const pkg = JSON.parse(readFileSync(join(import.meta.dir, "../../package.json"), "utf-8")) as { version: string };
     const version = pkg.version;
 
@@ -60,11 +60,11 @@ export class Server {
     app.route("/api/schedules", scheduleRoutes(ctx.scheduleService));
     app.route("/api/activity-log", activityLogRoutes(ctx.activityLogRepo));
     app.route("/api/summary", summaryRoutes(ctx));
-    app.get("/api/health", (c) => {
+    app.get("/api/health", async (c) => {
       let dbOk = false;
       try {
-        const row = ctx.db.query("SELECT 1 AS ok").get() as { ok: number } | null;
-        dbOk = row?.ok === 1;
+        const [row] = await ctx.sql`SELECT 1 AS ok`;
+        dbOk = (row as { ok: number })?.ok === 1;
       } catch {
         dbOk = false;
       }
@@ -81,7 +81,7 @@ export class Server {
     // -- MCP --------------------------------------------------------
     app.use("/mcp", logger((str) => process.stderr.write(str + "\n")));
     const handleMcp = createMcpHttpHandler({
-      db: ctx.db,
+      sql: ctx.sql,
       eventBus: ctx.eventBus,
       homeTaskService: ctx.homeTaskService,
       noteService: ctx.noteService,
