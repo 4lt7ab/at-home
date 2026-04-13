@@ -18,19 +18,19 @@ bun run build        # Build web assets to src/web/dist/
 bun run serve        # Build + start production server
 bun run start:mcp    # Start standalone MCP server
 
-bun test             # Run ALL tests (domain + web). Always use this.
+bun run test         # Run ALL tests (domain + API + web). Always use this.
 bun run test:web     # Frontend tests only (Vitest, once)
 bun run test:web:watch  # Frontend tests in watch mode
 
 # Single test file
-bun test src/domain/integration.test.ts
+bun test ./tests/domain.test.ts
 bun test --grep "test name pattern"
 cd src/web && npx vitest run src/hooks/useNotes.test.ts
 
 ./deploy.sh patch    # Bump patch, tag, push (also: minor, major)
 ```
 
-**Testing rule**: `bun test` must run all tests in the project. If you add new test files, ensure they are picked up by `bun test`. Do not create separate test commands — all tests funnel through `bun test`.
+**Testing rule**: Always use `bun run test` — it runs bun tests (`tests/`) and web tests (`src/web/`) in sequence. Bare `bun test` only runs the bun side. New test files go in `tests/` (bun) or `src/web/src/` (Vitest).
 
 ## Architecture
 
