@@ -17,7 +17,7 @@
     "start": "DATABASE_URL=postgres://tab:tab@localhost:3101/at_home bun run src/index.ts",
     "serve": "bun run build && bun run start",
     "start:mcp": "DATABASE_URL=postgres://tab:tab@localhost:3101/at_home bun run src/mcp/standalone.ts",
-    "test": "bun test src/domain ./tests && cd src/web && vitest run",
+    "test": "bun test && cd src/web && vitest run",
     "test:web": "cd src/web && vitest run",
     "test:web:watch": "cd src/web && vitest"
   },

@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
-import { bootstrap, type AppContext } from "./bootstrap";
-import { ServiceError } from "./errors";
+import { bootstrap, type AppContext } from "../src/domain/bootstrap";
+import { ServiceError } from "../src/domain/errors";
 
 const TEST_DB = process.env.TEST_DATABASE_URL ?? "postgres://tab:tab@localhost:3101/at_home";
 
