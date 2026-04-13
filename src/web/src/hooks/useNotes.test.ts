@@ -26,9 +26,8 @@ const NOW = "2026-04-03T12:00:00.000Z";
 function makeNote(overrides: Partial<NoteSummary> = {}): NoteSummary {
   return {
     id: "note-1",
-    task_id: null,
     title: "Test Note",
-    has_content: false,
+    has_context: false,
     created_at: NOW,
     updated_at: NOW,
     ...overrides,
@@ -87,7 +86,7 @@ describe("useNotes", () => {
   it("passes params to fetchNotes", async () => {
     mockFetchNotes.mockResolvedValue({ data: [], total: 0 });
     const { Wrapper } = createWrapper();
-    const params = { task_id: "task-1", limit: 50 };
+    const params = { title: "search", limit: 50 };
 
     renderHook(() => useNotes(params), { wrapper: Wrapper });
 
@@ -121,16 +120,16 @@ describe("useNotes", () => {
 
     const { result, rerender } = renderHook(
       ({ params }) => useNotes(params),
-      { wrapper: Wrapper, initialProps: { params: { task_id: "t1" } } },
+      { wrapper: Wrapper, initialProps: { params: { title: "a" } } },
     );
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(mockFetchNotes).toHaveBeenCalledTimes(1);
 
-    rerender({ params: { task_id: "t2" } });
+    rerender({ params: { title: "b" } });
 
     await waitFor(() => expect(mockFetchNotes).toHaveBeenCalledTimes(2));
-    expect(mockFetchNotes).toHaveBeenLastCalledWith({ task_id: "t2" });
+    expect(mockFetchNotes).toHaveBeenLastCalledWith({ title: "b" });
   });
 
   it("refetch function triggers a new fetch", async () => {
@@ -165,7 +164,7 @@ describe("useNotes", () => {
     await waitFor(() => expect(mockFetchNotes.mock.calls.length).toBeGreaterThan(callsBefore));
   });
 
-  it("does not refetch on home_task event (not subscribed)", async () => {
+  it("does not refetch on unrelated entity events", async () => {
     mockFetchNotes.mockResolvedValue({ data: [], total: 0 });
     const { Wrapper, getOnEvent } = createWrapper();
 
@@ -175,24 +174,7 @@ describe("useNotes", () => {
     const callsBefore = mockFetchNotes.mock.calls.length;
 
     act(() => {
-      getOnEvent()({ type: "created", entity_type: "home_task" });
-    });
-
-    await new Promise((r) => setTimeout(r, 50));
-    expect(mockFetchNotes.mock.calls.length).toBe(callsBefore);
-  });
-
-  it("does not refetch on schedule event (not subscribed)", async () => {
-    mockFetchNotes.mockResolvedValue({ data: [], total: 0 });
-    const { Wrapper, getOnEvent } = createWrapper();
-
-    const { result } = renderHook(() => useNotes(), { wrapper: Wrapper });
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    const callsBefore = mockFetchNotes.mock.calls.length;
-
-    act(() => {
-      getOnEvent()({ type: "updated", entity_type: "schedule" });
+      getOnEvent()({ type: "created", entity_type: "other" });
     });
 
     await new Promise((r) => setTimeout(r, 50));

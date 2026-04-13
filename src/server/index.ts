@@ -8,16 +8,12 @@ import { secureHeaders } from "hono/secure-headers";
 import { bodyLimit } from "hono/body-limit";
 import { etag } from "hono/etag";
 import { join } from "path";
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, watch as fsWatch } from "fs";
 import { bootstrap, ServiceError } from "../domain";
 import type { DomainEvent } from "../domain/events";
 import { parseArgs, parseCorsOrigins, logListening, type ServerOptions } from "../domain/args";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import { taskRoutes } from "./routes/tasks";
 import { noteRoutes } from "./routes/notes";
-import { scheduleRoutes } from "./routes/schedules";
-import { activityLogRoutes } from "./routes/activity-log";
-import { summaryRoutes } from "./routes/summary";
 import { createMcpHttpHandler } from "../mcp/server";
 import type { ServerWebSocket } from "bun";
 
@@ -55,11 +51,7 @@ export class Server {
 
     // -- API (with logging) ----------------------------------------
     app.use("/api/*", logger((str) => process.stderr.write(str + "\n")));
-    app.route("/api/tasks", taskRoutes(ctx.homeTaskService));
     app.route("/api/notes", noteRoutes(ctx.noteService));
-    app.route("/api/schedules", scheduleRoutes(ctx.scheduleService));
-    app.route("/api/activity-log", activityLogRoutes(ctx.activityLogRepo));
-    app.route("/api/summary", summaryRoutes(ctx));
     app.get("/api/health", async (c) => {
       let dbOk = false;
       try {
@@ -81,24 +73,40 @@ export class Server {
     // -- MCP --------------------------------------------------------
     app.use("/mcp", logger((str) => process.stderr.write(str + "\n")));
     const handleMcp = createMcpHttpHandler({
-      sql: ctx.sql,
-      eventBus: ctx.eventBus,
-      homeTaskService: ctx.homeTaskService,
       noteService: ctx.noteService,
-      scheduleService: ctx.scheduleService,
-      homeTaskRepo: ctx.homeTaskRepo,
       noteRepo: ctx.noteRepo,
-      scheduleRepo: ctx.scheduleRepo,
-      activityLogRepo: ctx.activityLogRepo,
     });
     app.all("/mcp", (c) => handleMcp(c.req.raw));
 
     // -- Static web assets -----------------------------------------
     const dist = join(import.meta.dir, "../web/dist");
     const indexPath = join(dist, "index.html");
-    const indexHtml = existsSync(indexPath)
+
+    // Keep index.html in memory, reload when Vite rebuilds
+    let indexHtml: string | null = existsSync(indexPath)
       ? readFileSync(indexPath, "utf-8")
       : null;
+
+    // Watch for rebuilds so dev mode picks up changes without restart
+    try {
+      fsWatch(dist, { recursive: true }, (_, filename) => {
+        if (filename === "index.html" || filename?.endsWith("index.html")) {
+          try { indexHtml = readFileSync(indexPath, "utf-8"); } catch { /* not yet */ }
+        }
+      });
+    } catch { /* dist/ may not exist yet */ }
+
+    // If index.html wasn't ready at startup, poll briefly for Vite's first build
+    if (!indexHtml) {
+      const poll = setInterval(() => {
+        if (existsSync(indexPath)) {
+          indexHtml = readFileSync(indexPath, "utf-8");
+          clearInterval(poll);
+        }
+      }, 500);
+      // Stop polling after 30s regardless
+      setTimeout(() => clearInterval(poll), 30_000);
+    }
 
     app.use(
       "/assets/*",
@@ -114,7 +122,7 @@ export class Server {
     // SPA fallback
     app.get("/*", (c) => {
       if (indexHtml) return c.html(indexHtml);
-      return c.text("Not found — run `bun run build` first", 404);
+      return c.text("Not found — waiting for initial build (bun run build)", 404);
     });
 
     // -- Error handling --------------------------------------------
@@ -167,7 +175,7 @@ export class Server {
       },
     });
 
-    logListening("tab-at-home", host, port);
+    logListening("at-home", host, port);
   }
 }
 

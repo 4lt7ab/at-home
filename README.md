@@ -1,29 +1,25 @@
-# tab-at-home
+# at-home
 
-A personal home task management app that keeps your household running smoothly. It works as three things in one: a **schedule and reminder manager** for recurring chores, a **list keeper** for tracking everything that needs doing, and a **message board** for notes and post-its you can attach to tasks or leave standing on their own.
-
-Open it once a day, see what's due, mark things done, move on.
+A simple notes app with real-time updates. Write notes with titles and rich text context, and see changes pushed instantly over WebSocket. Includes MCP integration for AI client access.
 
 ## Features
 
-- **Daily summary** -- a single view of what's overdue, what's due today, and what's coming up
-- **Recurring schedules** -- daily, weekly, monthly, seasonal, or custom recurrence patterns with automatic advancement
-- **Notes** -- standalone or linked to tasks; use them as completion logs, reminders, or general-purpose post-its
-- **Areas** -- tag tasks by location (kitchen, bathroom, yard, garage, HVAC, plumbing, etc.)
-- **Dark mode** -- auto, light, or dark; persisted across sessions
-- **Gallery and list views** -- toggle how you browse tasks and notes
+- **Notes** -- create, edit, and delete notes with titles and freeform context
 - **Real-time updates** -- changes push instantly over WebSocket, no manual refresh needed
-- **MCP integration** -- 17 tools for AI client access (Claude Desktop, etc.)
-- **Activity log** -- append-only audit trail of every create, update, delete, and completion
+- **Dark mode** -- auto, light, or dark; persisted across sessions
+- **MCP integration** -- 5 tools for AI client access (Claude Desktop, etc.)
 
 ## Quick Start
 
-**Prerequisites:** [Bun](https://bun.sh) 1.3 or later.
+**Prerequisites:** [Bun](https://bun.sh) 1.3 or later, PostgreSQL.
 
 ```bash
 # Clone and install
-git clone <repo-url> && cd tab-at-home
+git clone <repo-url> && cd at-home
 bun install
+
+# Set up the database
+export DATABASE_URL=postgres://localhost/at_home
 
 # Start the dev server (API on :3100, web on :3102)
 bun run dev
@@ -32,7 +28,7 @@ bun run dev
 open http://localhost:3100
 ```
 
-The database is created automatically at `.local/data/sqlite.db` on first run.
+The database schema is created automatically via migrations on first run.
 
 ## Commands
 
@@ -51,12 +47,10 @@ bun run test:web:watch # Frontend tests in watch mode
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SQLITE_PATH` | *(required)* | Path to the SQLite database file |
+| `DATABASE_URL` | *(required)* | PostgreSQL connection string |
 | `HOME_HOST` | `0.0.0.0` | Server bind address |
 | `HOME_PORT` | `3100` | Server port |
 | `HOME_CORS_ORIGINS` | -- | Comma-separated list of allowed CORS origins |
-
-In development, `SQLITE_PATH` defaults to `.local/data/sqlite.db` via the npm scripts.
 
 ## Docker
 
@@ -64,7 +58,7 @@ In development, `SQLITE_PATH` defaults to `.local/data/sqlite.db` via the npm sc
 docker compose up -d
 ```
 
-Data persists to `.docker/data/` on the host via a bind mount. The container runs as a non-root user with resource limits (1 CPU, 512MB memory). The image uses a multi-stage build to keep the final layer lean -- production dependencies only, with pre-built web assets.
+Data persists via PostgreSQL. The container runs as a non-root user with resource limits. The image uses a multi-stage build with production dependencies only and pre-built web assets.
 
 To rebuild after code changes:
 
@@ -74,23 +68,23 @@ docker compose up -d --build
 
 ## Architecture
 
-The app is built in TypeScript end-to-end. A shared **domain layer** holds all business logic -- entities, services, repositories, and a recurrence engine. Three transport layers sit on top of it: a **Hono HTTP API** with REST routes, a **React SPA** served as static files, and an **MCP server** for AI tool access. An **EventBus** broadcasts domain events over WebSocket so the UI stays in sync without polling.
+The app is built in TypeScript end-to-end. A shared **domain layer** holds all business logic -- the Note entity, NoteService, and NoteRepository. Three transport layers sit on top: a **Hono HTTP API** with REST routes, a **React SPA** served as static files, and an **MCP server** for AI tool access. An **EventBus** broadcasts domain events over WebSocket so the UI stays in sync without polling.
 
 ```
 Web UI (React 19)    --+
-HTTP API (Hono)      --+--> Services --> Repositories --> SQLite (WAL)
+HTTP API (Hono)      --+--> NoteService --> NoteRepository --> PostgreSQL
 MCP Server           --+         |
                            EventBus --> WebSocket broadcast
 ```
 
-Data is stored in SQLite with WAL mode enabled. Migrations run automatically on startup.
+Migrations run automatically on startup.
 
 ## Tech Stack
 
 - **Runtime** -- Bun
 - **Backend** -- Hono
-- **Database** -- SQLite (WAL mode, file-based migrations)
-- **Frontend** -- React 19, Vite
+- **Database** -- PostgreSQL (via `postgres` library)
+- **Frontend** -- React 19, Vite, @4lt7ab/ui
 - **Language** -- TypeScript (strict)
 - **Validation** -- Zod
 - **IDs** -- ULID
@@ -102,21 +96,21 @@ Data is stored in SQLite with WAL mode enabled. Migrations run automatically on 
 ```
 src/
   index.ts                  # Entry point
-  domain/                   # Business logic (entities, services, repos, operations)
-    entities.ts             #   Entity types + summary projections
-    services.ts             #   Service interfaces
-    recurrence.ts           #   Recurrence engine (daily/weekly/monthly/seasonal/custom)
-    summary.ts              #   Daily summary computation
+  domain/                   # Business logic (Note entity, service, repository)
+    entities.ts             #   Note entity type
+    services.ts             #   Service interface (INoteService)
+    inputs.ts               #   Create/Update input types
+    errors.ts               #   ServiceError class
+    events.ts               #   EventBus pub-sub
     bootstrap.ts            #   Dependency injection wiring
     db/migrations/          #   SQL migration files
-    repositories/           #   SQLite data access (raw SQL, no ORM)
-    services/               #   Service implementations
-    operations/             #   Composite transactional workflows
+    repositories/notes.ts   #   PostgreSQL data access
+    services/notes.ts       #   NoteService implementation
   server/                   # HTTP layer (Hono routes, WebSocket, static serving)
-    routes/                 #   /api/tasks, /api/notes, /api/schedules, /api/summary, ...
-  mcp/                      # MCP tool definitions (17 tools for AI clients)
-  web/                      # React SPA (Vite, hash routing, dark mode, real-time events)
-    src/pages/              #   Daily summary, task list, task detail, note list
+    routes/notes.ts         #   /api/notes CRUD
+  mcp/                      # MCP tool definitions (5 tools for AI clients)
+  web/                      # React SPA (NoteListPage, hooks, real-time events)
+    src/pages/              #   NoteListPage
     src/hooks/              #   Data fetching, routing, theme, event subscription
 ```
 

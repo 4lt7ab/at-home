@@ -35,7 +35,7 @@ export class McpStandaloneServer {
     const handleMcp = createMcpHttpHandler(ctx);
     app.all("/*", (c) => handleMcp(c.req.raw));
 
-    logListening("tab-at-home mcp (standalone)", host, port);
+    logListening("at-home mcp (standalone)", host, port);
 
     Bun.serve({
       port,
