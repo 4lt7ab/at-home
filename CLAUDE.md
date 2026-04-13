@@ -26,6 +26,8 @@ bun run test:web:watch  # Frontend tests in watch mode
 bun test src/domain/integration.test.ts
 bun test --grep "test name pattern"
 cd src/web && npx vitest run src/hooks/useNotes.test.ts
+
+./deploy.sh patch    # Bump patch, tag, push (also: minor, major)
 ```
 
 **Testing rule**: `bun test` must run all tests in the project. If you add new test files, ensure they are picked up by `bun test`. Do not create separate test commands — all tests funnel through `bun test`.
@@ -65,6 +67,27 @@ MCP Server            -+          |
 | `HOME_PORT` | `3100` | Server port |
 | `HOME_CORS_ORIGINS` | -- | CSV of allowed CORS origins |
 | `TEST_DATABASE_URL` | `postgres://tab:tab@localhost:3101/at_home` | Test database (integration tests, uses dev DB by default) |
+
+## Migrations
+
+All database migrations **must be backward compatible**. Users run older app versions against newer schemas during rolling deploys. This means:
+
+- **Add columns** with defaults or as nullable — never add NOT NULL without a default
+- **Drop columns** only after the previous release no longer references them
+- **Rename** via add-new → migrate-data → drop-old across releases, never in one step
+- **Never drop tables** that the prior release still queries
+
+Migrations run automatically on startup. A migration that breaks the prior version breaks every user mid-upgrade.
+
+## Versioning
+
+Semver tracked in `package.json` (`version` field). Releases are git tags (`v0.1.0`, `v0.2.0`, etc.).
+
+- **Patch** (`0.1.x`): bug fixes, no schema changes
+- **Minor** (`0.x.0`): new features, backward-compatible migrations
+- **Major** (`x.0.0`): breaking changes (schema or API)
+
+Deploy with `./deploy.sh [patch|minor|major]` — bumps version, commits, tags, and pushes.
 
 ## Tech Stack
 
