@@ -4,12 +4,14 @@ import { z } from "zod";
 import {
   ServiceError,
   type INoteService,
+  type IReminderService,
   type NoteRepository,
 } from "../domain";
 
 export interface McpServiceContext {
   noteService: INoteService;
   noteRepo: NoteRepository;
+  reminderService: IReminderService;
 }
 
 async function handle<T>(fn: () => Promise<T>) {
@@ -31,9 +33,9 @@ async function handle<T>(fn: () => Promise<T>) {
   }
 }
 
-/** Create an McpServer with note CRUD tools registered. */
+/** Create an McpServer with note and reminder CRUD tools registered. */
 export function createMcpServer(ctx: McpServiceContext): McpServer {
-  const { noteService } = ctx;
+  const { noteService, reminderService } = ctx;
 
   const server = new McpServer({
     name: "at-home",
@@ -103,6 +105,88 @@ export function createMcpServer(ctx: McpServiceContext): McpServer {
       },
     },
     ({ ids }) => handle(async () => { const deleted = await noteService.remove(ids); return { deleted }; })
+  );
+
+  // -- Reminder tools ---------------------------------------------------
+
+  server.registerTool(
+    "list_reminders",
+    {
+      description: "List reminder summaries with optional filters. Returns { data, total } where data contains reminder summaries (id, context, context_preview, remind_at, recurrence, is_active, timestamps).",
+      inputSchema: {
+        context: z.string().max(255).optional(),
+        remind_at_from: z.string().optional(),
+        remind_at_to: z.string().optional(),
+        status: z.enum(["active", "dormant"]).optional(),
+        limit: z.number().int().min(1).max(200).optional(),
+        offset: z.number().int().min(0).optional(),
+      },
+    },
+    ({ context, remind_at_from, remind_at_to, status, limit, offset }) =>
+      handle(() => reminderService.list({ context, remind_at_from, remind_at_to, status, limit, offset }))
+  );
+
+  server.registerTool(
+    "get_reminder",
+    {
+      description: "Retrieve a single reminder by ID with full context.",
+      inputSchema: { id: z.string().max(26) },
+    },
+    ({ id }) => handle(() => reminderService.get(id))
+  );
+
+  server.registerTool(
+    "create_reminder",
+    {
+      description: "Create reminders. Pass an `items` array of objects, each with required context and remind_at. Optional recurrence (weekly, monthly, yearly).",
+      inputSchema: {
+        items: z.array(z.object({
+          context: z.string().max(50000),
+          remind_at: z.string(),
+          recurrence: z.enum(["weekly", "monthly", "yearly"]).optional(),
+        })),
+      },
+    },
+    ({ items }) => handle(() => reminderService.create(items))
+  );
+
+  server.registerTool(
+    "update_reminder",
+    {
+      description: "Update reminders by ID. Pass an `items` array with required id. Only provided fields are changed.",
+      inputSchema: {
+        items: z.array(z.object({
+          id: z.string().max(26),
+          context: z.string().max(50000).optional(),
+          remind_at: z.string().optional(),
+          recurrence: z.enum(["weekly", "monthly", "yearly"]).optional().nullable(),
+        })),
+      },
+    },
+    ({ items }) => handle(() => reminderService.update(items))
+  );
+
+  server.registerTool(
+    "delete_reminders",
+    {
+      description: "Permanently delete reminders by ID. This is destructive and cannot be undone. Pass an `ids` array of reminder ID strings.",
+      inputSchema: {
+        ids: z.array(z.string().max(26)),
+      },
+    },
+    ({ ids }) => handle(async () => { const deleted = await reminderService.remove(ids); return { deleted }; })
+  );
+
+  server.registerTool(
+    "dismiss_reminder",
+    {
+      description: "Dismiss a reminder by ID. For recurring reminders, this marks the current occurrence as handled and advances to the next. Optionally override the next remind_at.",
+      inputSchema: {
+        id: z.string().max(26),
+        remind_at: z.string().optional(),
+      },
+    },
+    ({ id, remind_at }) => handle(() => reminderService.dismiss({ id, remind_at }))
   );
 
   return server;

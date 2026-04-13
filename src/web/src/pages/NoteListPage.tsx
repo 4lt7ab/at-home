@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { semantic as t } from "@4lt7ab/ui/core";
 import {
-  semantic as t, Card, Badge, Button, Stack, Skeleton, EmptyState,
+  Card, Badge, Button, Stack, Skeleton, EmptyState,
   Input, Textarea, ModalShell,
 } from "@4lt7ab/ui/ui";
 import type { NoteSummary } from "@domain/entities";

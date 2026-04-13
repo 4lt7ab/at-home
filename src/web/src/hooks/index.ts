@@ -2,6 +2,7 @@ export { useHashRoute } from "./useHashRoute";
 export { useEventSubscription, useEventFanOut, useEntitySubscription, EventSubscriptionContext } from "./useEventSubscription";
 export type { SubscribeEvents, EventSubscriptionContextValue } from "./useEventSubscription";
 export { useNotes } from "./useNotes";
+export { useReminders } from "./useReminders";
 export { useViewMode } from "./useViewMode";
 export type { ViewMode } from "./useViewMode";
 export { useHotkey } from "./useHotkey";

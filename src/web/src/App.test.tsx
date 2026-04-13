@@ -14,21 +14,34 @@ vi.mock("./useRealtimeEvents", () => ({
   },
 }));
 
+const mockNavigate = vi.fn();
+let mockPath = "/";
+
 vi.mock("./hooks", () => ({
   useEventFanOut: () => ({ onEvent: mockOnEvent, subscribeEvents: mockSubscribeEvents }),
+  useHashRoute: () => ({ path: mockPath, navigate: mockNavigate }),
   EventSubscriptionContext: (() => {
     const { createContext } = require("react");
     return createContext(null);
   })(),
 }));
 
-vi.mock("@4lt7ab/ui/core", () => ({
-  useTheme: () => ({
-    theme: "synthwave",
-    setTheme: vi.fn(),
-    themes: new Map([["synthwave", { label: "Synthwave" }]]),
-  }),
-}));
+vi.mock("@4lt7ab/ui/ui", async () => {
+  const actual = await vi.importActual<Record<string, unknown>>("@4lt7ab/ui/ui");
+  return {
+    ...actual,
+    ThemePicker: () => <div data-testid="theme-picker" />,
+    IconButton: ({ "aria-label": label, onClick }: { "aria-label": string; onClick?: () => void }) => (
+      <button data-testid={`icon-button-${label.toLowerCase()}`} aria-label={label} onClick={onClick} />
+    ),
+    ModalShell: ({ children, onClose }: { children: React.ReactNode; onClose: () => void }) => (
+      <div data-testid="modal-shell" role="dialog">
+        <button data-testid="modal-close" onClick={onClose} />
+        {children}
+      </div>
+    ),
+  };
+});
 
 vi.mock("./pages/NoteListPage", () => ({
   NoteListPage: () => (
@@ -36,11 +49,17 @@ vi.mock("./pages/NoteListPage", () => ({
   ),
 }));
 
+vi.mock("./pages/ReminderDashboardPage", () => ({
+  ReminderDashboardPage: () => (
+    <div data-testid="reminder-dashboard-page">ReminderDashboardPage</div>
+  ),
+}));
+
 // ---------------------------------------------------------------------------
 // Imports
 // ---------------------------------------------------------------------------
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { App } from "./App";
 
 // ---------------------------------------------------------------------------
@@ -50,7 +69,9 @@ import { App } from "./App";
 beforeEach(() => {
   mockOnEvent.mockClear();
   mockSubscribeEvents.mockClear();
+  mockNavigate.mockClear();
   mockConnected = true;
+  mockPath = "/";
 });
 
 // ---------------------------------------------------------------------------
@@ -69,6 +90,26 @@ describe("App", () => {
     it("provides subscribeEvents and connected to children via context", () => {
       render(<App />);
       expect(screen.getByTestId("note-list-page")).toBeInTheDocument();
+    });
+  });
+
+  describe("settings modal", () => {
+    it("opens when the settings icon is clicked", () => {
+      render(<App />);
+      expect(screen.queryByTestId("modal-shell")).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByTestId("icon-button-settings"));
+      expect(screen.getByTestId("modal-shell")).toBeInTheDocument();
+      expect(screen.getByTestId("theme-picker")).toBeInTheDocument();
+    });
+
+    it("closes when the modal close is triggered", () => {
+      render(<App />);
+      fireEvent.click(screen.getByTestId("icon-button-settings"));
+      expect(screen.getByTestId("modal-shell")).toBeInTheDocument();
+
+      fireEvent.click(screen.getByTestId("modal-close"));
+      expect(screen.queryByTestId("modal-shell")).not.toBeInTheDocument();
     });
   });
 });

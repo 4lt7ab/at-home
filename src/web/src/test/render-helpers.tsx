@@ -5,7 +5,7 @@ import type { ReactElement, ReactNode } from "react";
 import { ThemeProvider } from "@4lt7ab/ui/core";
 import { EventSubscriptionContext } from "../hooks/useEventSubscription";
 import type { EventSubscriptionContextValue } from "../hooks/useEventSubscription";
-import type { NoteSummary } from "@domain/entities";
+import type { NoteSummary, ReminderSummary } from "@domain/entities";
 
 // ---------------------------------------------------------------------------
 // Default mock context values
@@ -72,6 +72,26 @@ export function makeNoteSummary(
     id,
     title: `Note ${id}`,
     has_context: false,
+    created_at: NOW,
+    updated_at: NOW,
+    ...overrides,
+  };
+}
+
+const TOMORROW = "2026-04-04T09:00:00.000Z";
+
+export function makeReminderSummary(
+  overrides: Partial<ReminderSummary> = {},
+): ReminderSummary {
+  const id = overrides.id ?? nextId();
+  return {
+    id,
+    context: "Test reminder",
+    context_preview: "Test reminder",
+    remind_at: TOMORROW,
+    recurrence: null,
+    dismissed_at: null,
+    is_active: true,
     created_at: NOW,
     updated_at: NOW,
     ...overrides,
