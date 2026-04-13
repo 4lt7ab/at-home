@@ -96,9 +96,22 @@ export class ReminderService implements IReminderService {
       if (input.recurrence !== undefined && input.recurrence !== null && !VALID_RECURRENCES.includes(input.recurrence)) {
         throw new ServiceError("recurrence must be one of: weekly, biweekly, monthly, yearly", 400);
       }
+
     }
 
-    const reminders = await this.reminderRepo.updateMany(inputs);
+    // Build repo updates, clearing dismissed_at when remind_at moves past it
+    const repoUpdates = await Promise.all(inputs.map(async (input) => {
+      const update: { id: string; context?: string; remind_at?: string; recurrence?: Recurrence | null; dismissed_at?: string | null } = { ...input };
+      if (input.remind_at !== undefined) {
+        const existing = (await this.reminderRepo.findById(input.id))!;
+        if (existing.dismissed_at && input.remind_at > existing.dismissed_at) {
+          update.dismissed_at = null;
+        }
+      }
+      return update;
+    }));
+
+    const reminders = await this.reminderRepo.updateMany(repoUpdates);
     this.eventBus.emit({ type: "updated", entity_type: "reminder", payload: reminders });
     return reminders;
   }

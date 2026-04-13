@@ -9,6 +9,7 @@ import { ReminderDashboardPage } from "./ReminderDashboardPage";
 // ---------------------------------------------------------------------------
 
 const mockRefetchOverdue = vi.fn();
+const mockRefetchToday = vi.fn();
 const mockRefetchThisWeek = vi.fn();
 const mockRefetchNextWeek = vi.fn();
 const mockRefetchDormant = vi.fn();
@@ -21,15 +22,17 @@ vi.mock("../api", () => ({
   createReminders: vi.fn(),
   dismissReminders: vi.fn(),
   updateReminders: vi.fn(),
+  deleteReminders: vi.fn(),
 }));
 
 import { useReminders } from "../hooks";
-import { createReminders, dismissReminders, updateReminders } from "../api";
+import { createReminders, dismissReminders, updateReminders, deleteReminders } from "../api";
 
 const mockUseReminders = vi.mocked(useReminders);
 const mockCreateReminders = vi.mocked(createReminders);
 const mockDismissReminders = vi.mocked(dismissReminders);
 const mockUpdateReminders = vi.mocked(updateReminders);
+const mockDeleteReminders = vi.mocked(deleteReminders);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -48,43 +51,34 @@ function defaultReturn(refetch: ReturnType<typeof vi.fn>): RemindersReturn {
 }
 
 /**
- * The component calls useReminders four times with different params:
- *   1. overdue (status: "active", remind_at_to only — no remind_at_from)
- *   2. thisWeek (status: "active", this week bounds)
- *   3. nextWeek (status: "active", next week bounds)
- *   4. dormant (status: "dormant")
- * We match on the status param to identify dormant vs active calls,
- * and use remind_at_from presence/value to distinguish overdue/this/next week.
+ * The component calls useReminders five times with different params:
+ *   1. overdue (status: "active", remind_at_to = today start, no remind_at_from)
+ *   2. today (status: "active", remind_at_from = today start, remind_at_to = today end)
+ *   3. thisWeek (status: "active", remind_at_from = tomorrow, remind_at_to = week end)
+ *   4. nextWeek (status: "active", next week bounds)
+ *   5. dormant (status: "dormant")
+ * We use a call counter to map them in order.
  */
 function setupHook(overrides?: {
   overdue?: Partial<RemindersReturn>;
+  today?: Partial<RemindersReturn>;
   thisWeek?: Partial<RemindersReturn>;
   nextWeek?: Partial<RemindersReturn>;
   dormant?: Partial<RemindersReturn>;
 }) {
-  const now = new Date();
-  const day = now.getUTCDay();
-  const thisSunday = new Date(Date.UTC(
-    now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - day,
-  ));
-  const nextSunday = new Date(Date.UTC(
-    now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - day + 7,
-  ));
-  const thisWeekStart = thisSunday.toISOString();
-  const nextWeekStart = nextSunday.toISOString();
+  let callIndex = 0;
+  const order: Array<{ refetch: ReturnType<typeof vi.fn>; data?: Partial<RemindersReturn> }> = [
+    { refetch: mockRefetchOverdue, data: overrides?.overdue },
+    { refetch: mockRefetchToday, data: overrides?.today },
+    { refetch: mockRefetchThisWeek, data: overrides?.thisWeek },
+    { refetch: mockRefetchNextWeek, data: overrides?.nextWeek },
+    { refetch: mockRefetchDormant, data: overrides?.dormant },
+  ];
 
-  mockUseReminders.mockImplementation((params) => {
-    if (params?.status === "dormant") {
-      return { ...defaultReturn(mockRefetchDormant), ...overrides?.dormant };
-    }
-    // Overdue: active with no remind_at_from (only remind_at_to)
-    if (params?.status === "active" && !params?.remind_at_from) {
-      return { ...defaultReturn(mockRefetchOverdue), ...overrides?.overdue };
-    }
-    if (params?.remind_at_from === nextWeekStart) {
-      return { ...defaultReturn(mockRefetchNextWeek), ...overrides?.nextWeek };
-    }
-    return { ...defaultReturn(mockRefetchThisWeek), ...overrides?.thisWeek };
+  mockUseReminders.mockImplementation(() => {
+    const entry = order[callIndex % order.length];
+    callIndex++;
+    return { ...defaultReturn(entry.refetch), ...entry.data };
   });
 }
 
@@ -219,10 +213,10 @@ describe("ReminderDashboardPage", () => {
         target: { value: "Water the plants" },
       });
 
-      // Set datetime-local input
-      const datetimeInput = screen.getByDisplayValue("");
-      fireEvent.change(datetimeInput, {
-        target: { value: "2026-04-15T10:00" },
+      // Set date input
+      const dateInput = screen.getByDisplayValue("");
+      fireEvent.change(dateInput, {
+        target: { value: "2026-04-15" },
       });
 
       fireEvent.click(screen.getByText("Create"));
@@ -250,23 +244,47 @@ describe("ReminderDashboardPage", () => {
   });
 
   // -------------------------------------------------------------------------
-  // Dismiss
+  // Edit modal (click card)
   // -------------------------------------------------------------------------
 
-  describe("dismiss", () => {
-    it("dismiss button calls dismissReminders with correct id", async () => {
-      mockDismissReminders.mockResolvedValue([]);
+  describe("edit modal", () => {
+    it("clicking a reminder card opens edit modal", () => {
       const reminders = [
         makeReminderSummary({ id: "r1", context_preview: "Do laundry" }),
       ];
       setupHook({ thisWeek: { reminders, total: 1 } });
       renderWithProviders(<ReminderDashboardPage />);
 
-      fireEvent.click(screen.getByText("Dismiss"));
+      fireEvent.click(screen.getByText("Do laundry"));
 
-      await waitFor(() => {
-        expect(mockDismissReminders).toHaveBeenCalledWith([{ id: "r1" }]);
-      });
+      expect(screen.getByText("Edit Reminder")).toBeInTheDocument();
+    });
+
+    it("edit modal shows dismiss and delete buttons for active reminders", () => {
+      const reminders = [
+        makeReminderSummary({ id: "r1", context_preview: "Active one" }),
+      ];
+      setupHook({ thisWeek: { reminders, total: 1 } });
+      renderWithProviders(<ReminderDashboardPage />);
+
+      fireEvent.click(screen.getByText("Active one"));
+
+      expect(screen.getByText("Dismiss")).toBeInTheDocument();
+      expect(screen.getByText("Delete")).toBeInTheDocument();
+    });
+
+    it("edit modal shows dormant banner for dormant reminders", () => {
+      const dormantReminders = [
+        makeReminderSummary({ id: "d1", context_preview: "Old reminder", is_active: false }),
+      ];
+      setupHook({ dormant: { reminders: dormantReminders, total: 1 } });
+      renderWithProviders(<ReminderDashboardPage />);
+
+      fireEvent.click(screen.getByText("Dormant Reminders"));
+      fireEvent.click(screen.getByText("Old reminder"));
+
+      expect(screen.getByText("Dormant Reminder")).toBeInTheDocument();
+      expect(screen.getByText(/Set a future date and save to reactivate/)).toBeInTheDocument();
     });
   });
 
@@ -282,46 +300,9 @@ describe("ReminderDashboardPage", () => {
       setupHook({ dormant: { reminders: dormantReminders, total: 1 } });
       renderWithProviders(<ReminderDashboardPage />);
 
-      // Click to expand dormant section
       fireEvent.click(screen.getByText("Dormant Reminders"));
 
       expect(screen.getByText("Old reminder")).toBeInTheDocument();
-      expect(screen.getByText("Reactivate")).toBeInTheDocument();
-    });
-
-    it("reactivate flow opens modal and submits new remind_at", async () => {
-      mockUpdateReminders.mockResolvedValue([]);
-      const dormantReminders = [
-        makeReminderSummary({ id: "d1", context_preview: "Reactivate me" }),
-      ];
-      setupHook({ dormant: { reminders: dormantReminders, total: 1 } });
-      renderWithProviders(<ReminderDashboardPage />);
-
-      // Expand dormant section
-      fireEvent.click(screen.getByText("Dormant Reminders"));
-
-      // Click reactivate
-      fireEvent.click(screen.getByText("Reactivate"));
-
-      // Modal should appear with title and context preview
-      expect(screen.getByText("Reactivate Reminder")).toBeInTheDocument();
-      // "Reactivate me" appears both in the card and modal preview
-      expect(screen.getAllByText("Reactivate me").length).toBeGreaterThanOrEqual(2);
-
-      // Set new datetime
-      const datetimeInput = screen.getByDisplayValue("");
-      fireEvent.change(datetimeInput, {
-        target: { value: "2026-04-20T14:00" },
-      });
-
-      fireEvent.click(screen.getByText("Set"));
-
-      await waitFor(() => {
-        expect(mockUpdateReminders).toHaveBeenCalledWith([{
-          id: "d1",
-          remind_at: expect.any(String),
-        }]);
-      });
     });
   });
 });

@@ -27,11 +27,11 @@ function thisSunday(): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - day));
 }
 
-/** Offset days from a base date, with optional hour. */
-function offsetDay(base: Date, days: number, hour = 9): string {
+/** Offset days from a base date, always midnight UTC. */
+function offsetDay(base: Date, days: number): string {
   const d = new Date(base);
   d.setUTCDate(d.getUTCDate() + days);
-  d.setUTCHours(hour, 0, 0, 0);
+  d.setUTCHours(0, 0, 0, 0);
   return d.toISOString();
 }
 
@@ -54,29 +54,29 @@ const notes = [
 
 const reminders = {
   overdue: [
-    { context: "Pay electricity bill — due April 5th", remind_at: offsetDay(weekStart, -8, 10) },
-    { context: "RSVP to Jake's dinner party", remind_at: offsetDay(weekStart, -3, 18) },
+    { context: "Pay electricity bill — due April 5th", remind_at: offsetDay(weekStart, -8) },
+    { context: "RSVP to Jake's dinner party", remind_at: offsetDay(weekStart, -3) },
   ],
 
   thisWeek: [
-    { context: "Team standup — prepare sprint update", remind_at: offsetDay(weekStart, 1, 9), recurrence: "weekly" as const },
-    { context: "Dentist appointment — Dr. Patel, 2:30 PM", remind_at: offsetDay(weekStart, 2, 14) },
-    { context: "Submit expense report for March", remind_at: offsetDay(weekStart, 3, 11) },
-    { context: "Water the plants", remind_at: offsetDay(weekStart, 0, 8), recurrence: "weekly" as const },
-    { context: "Call Mom", remind_at: offsetDay(weekStart, 6, 10), recurrence: "weekly" as const },
+    { context: "Team standup — prepare sprint update", remind_at: offsetDay(weekStart, 1), recurrence: "weekly" as const },
+    { context: "Dentist appointment — Dr. Patel", remind_at: offsetDay(weekStart, 2) },
+    { context: "Submit expense report for March", remind_at: offsetDay(weekStart, 3) },
+    { context: "Water the plants", remind_at: offsetDay(weekStart, 0), recurrence: "weekly" as const },
+    { context: "Call Mom", remind_at: offsetDay(weekStart, 6), recurrence: "weekly" as const },
   ],
 
   nextWeek: [
-    { context: "Quarterly tax payment deadline", remind_at: offsetDay(weekStart, 8, 9) },
-    { context: "Car oil change — schedule at Jiffy Lube", remind_at: offsetDay(weekStart, 9, 10), recurrence: "monthly" as const },
-    { context: "Payroll review and approval", remind_at: offsetDay(weekStart, 11, 9), recurrence: "biweekly" as const },
-    { context: "Review and merge open PRs before release", remind_at: offsetDay(weekStart, 10, 14) },
-    { context: "Anniversary dinner reservation", remind_at: offsetDay(weekStart, 12, 18), recurrence: "yearly" as const },
+    { context: "Quarterly tax payment deadline", remind_at: offsetDay(weekStart, 8) },
+    { context: "Car oil change — schedule at Jiffy Lube", remind_at: offsetDay(weekStart, 9), recurrence: "monthly" as const },
+    { context: "Payroll review and approval", remind_at: offsetDay(weekStart, 11), recurrence: "biweekly" as const },
+    { context: "Review and merge open PRs before release", remind_at: offsetDay(weekStart, 10) },
+    { context: "Anniversary dinner reservation", remind_at: offsetDay(weekStart, 12), recurrence: "yearly" as const },
   ],
 
   dormant: [
-    { context: "Renew passport — submitted application, waiting for processing", remind_at: offsetDay(weekStart, -30, 9) },
-    { context: "Follow up on warranty claim for dishwasher", remind_at: offsetDay(weekStart, -14, 10) },
+    { context: "Renew passport — submitted application, waiting for processing", remind_at: offsetDay(weekStart, -30) },
+    { context: "Follow up on warranty claim for dishwasher", remind_at: offsetDay(weekStart, -14) },
   ],
 };
 
