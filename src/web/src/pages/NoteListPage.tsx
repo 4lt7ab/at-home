@@ -95,6 +95,7 @@ export function NoteListPage(): React.JSX.Element {
         title="Notes"
         level={1}
         trailing={<Button variant="primary" size="sm" onClick={() => setShowCreate(true)}>+ New Note</Button>}
+        style={{ marginBottom: t.spaceLg }}
       />
 
       {error && <div style={{ color: t.colorError, fontSize: t.fontSizeSm, marginBottom: t.spaceMd }}>{error}</div>}

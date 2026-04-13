@@ -443,6 +443,7 @@ export function ReminderDashboardPage(): React.JSX.Element {
         title="Reminders"
         level={1}
         trailing={<Button variant="primary" size="sm" onClick={() => setShowCreate(true)}>+ New Reminder</Button>}
+        style={{ marginBottom: t.spaceLg }}
       />
 
       {(overdueData.reminders.length > 0 || overdueData.loading) && (
