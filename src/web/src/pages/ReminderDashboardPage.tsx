@@ -2,7 +2,8 @@ import { useState, useMemo } from "react";
 import { semantic as t } from "@4lt7ab/ui/core";
 import {
   Card, Badge, Button, Stack, Skeleton, EmptyState,
-  Input, Textarea, ModalShell, ConfirmDialog,
+  Textarea, ModalShell, ConfirmDialog, Field, Select, DatePicker,
+  PageHeader, ExpandableCard,
 } from "@4lt7ab/ui/ui";
 import type { ReminderSummary, Recurrence } from "@domain/entities";
 import { useReminders } from "../hooks";
@@ -37,15 +38,20 @@ function formatRemindAt(iso: string): string {
   return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 }
 
-/** Convert a date input value (YYYY-MM-DD) to midnight UTC ISO string. */
-function dateToUtcIso(dateValue: string): string {
-  return new Date(dateValue + "T00:00:00.000Z").toISOString();
+/** Convert a Date object to midnight UTC ISO string (date-only precision). */
+function dateToDayUtcIso(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return new Date(`${y}-${m}-${d}T00:00:00.000Z`).toISOString();
 }
 
-/** Convert an ISO UTC string to a date input value (YYYY-MM-DD). */
-function utcToDateValue(iso: string): string {
-  return iso.slice(0, 10);
-}
+const RECURRENCE_OPTIONS = [
+  { value: "weekly", label: "Weekly" },
+  { value: "biweekly", label: "Every 2 weeks" },
+  { value: "monthly", label: "Monthly" },
+  { value: "yearly", label: "Yearly" },
+];
 
 // ---------------------------------------------------------------------------
 // CreateReminderOverlay
@@ -56,7 +62,7 @@ function CreateReminderOverlay({ onClose, onCreated }: {
   onCreated: () => void;
 }): React.JSX.Element {
   const [context, setContext] = useState("");
-  const [remindAt, setRemindAt] = useState("");
+  const [remindAt, setRemindAt] = useState<Date | undefined>(undefined);
   const [recurrence, setRecurrence] = useState<Recurrence | "">("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +76,7 @@ function CreateReminderOverlay({ onClose, onCreated }: {
     try {
       await createReminders([{
         context: context.trim(),
-        remind_at: dateToUtcIso(remindAt),
+        remind_at: dateToDayUtcIso(remindAt),
         recurrence: recurrence || undefined,
       }]);
       onCreated();
@@ -87,36 +93,31 @@ function CreateReminderOverlay({ onClose, onCreated }: {
       <form onSubmit={handleSubmit}>
         <h3 style={{ fontSize: t.fontSizeLg, fontWeight: 600, marginBottom: t.spaceLg }}>New Reminder</h3>
         <Stack gap="sm">
-          <Textarea
-            rows={3}
-            placeholder="What do you want to be reminded about?"
-            value={context}
-            onChange={(e) => setContext(e.target.value)}
-            autoFocus
-          />
-          <Input
-            type="date"
-            value={remindAt}
-            onChange={(e) => setRemindAt(e.target.value)}
-          />
-          <select
-            value={recurrence}
-            onChange={(e) => setRecurrence(e.target.value as Recurrence | "")}
-            style={{
-              padding: `${t.spaceXs} ${t.spaceSm}`,
-              fontSize: t.fontSizeSm,
-              borderRadius: t.radiusSm,
-              border: `1px solid ${t.colorBorder}`,
-              background: t.colorSurface,
-              color: t.colorText,
-            }}
-          >
-            <option value="">No recurrence</option>
-            <option value="weekly">Weekly</option>
-            <option value="biweekly">Every 2 weeks</option>
-            <option value="monthly">Monthly</option>
-            <option value="yearly">Yearly</option>
-          </select>
+          <Field label="Reminder" htmlFor="reminder-context" required>
+            <Textarea
+              id="reminder-context"
+              rows={3}
+              placeholder="What do you want to be reminded about?"
+              value={context}
+              onChange={(e) => setContext(e.target.value)}
+              autoFocus
+            />
+          </Field>
+          <Field label="Date" required>
+            <DatePicker
+              value={remindAt}
+              onChange={(d) => setRemindAt(d)}
+              placeholder="Pick a date"
+            />
+          </Field>
+          <Field label="Recurrence">
+            <Select
+              value={recurrence}
+              onChange={(e) => setRecurrence(e.target.value as Recurrence | "")}
+              options={RECURRENCE_OPTIONS}
+              placeholder="No recurrence"
+            />
+          </Field>
         </Stack>
         {error && <div style={{ color: t.colorError, fontSize: t.fontSizeXs, marginTop: t.spaceXs }}>{error}</div>}
         <Stack direction="row" gap="sm" style={{ marginTop: t.spaceLg, justifyContent: "flex-end" }}>
@@ -138,7 +139,7 @@ function EditReminderOverlay({ reminder, onClose, onChanged }: {
   onChanged: () => void;
 }): React.JSX.Element {
   const [context, setContext] = useState(reminder.context);
-  const [remindAt, setRemindAt] = useState(utcToDateValue(reminder.remind_at));
+  const [remindAt, setRemindAt] = useState<Date | undefined>(new Date(reminder.remind_at));
   const [recurrence, setRecurrence] = useState<Recurrence | "">(reminder.recurrence ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -157,7 +158,7 @@ function EditReminderOverlay({ reminder, onClose, onChanged }: {
       await updateReminders([{
         id: reminder.id,
         context: context.trim(),
-        remind_at: dateToUtcIso(remindAt),
+        remind_at: dateToDayUtcIso(remindAt),
         recurrence: recurrence || null,
       }]);
       onChanged();
@@ -221,35 +222,30 @@ function EditReminderOverlay({ reminder, onClose, onChanged }: {
             </div>
           )}
           <Stack gap="sm">
-            <Textarea
-              rows={4}
-              value={context}
-              onChange={(e) => setContext(e.target.value)}
-              autoFocus
-            />
-            <Input
-              type="date"
-              value={remindAt}
-              onChange={(e) => setRemindAt(e.target.value)}
-            />
-            <select
-              value={recurrence}
-              onChange={(e) => setRecurrence(e.target.value as Recurrence | "")}
-              style={{
-                padding: `${t.spaceXs} ${t.spaceSm}`,
-                fontSize: t.fontSizeSm,
-                borderRadius: t.radiusSm,
-                border: `1px solid ${t.colorBorder}`,
-                background: t.colorSurface,
-                color: t.colorText,
-              }}
-            >
-              <option value="">No recurrence</option>
-              <option value="weekly">Weekly</option>
-              <option value="biweekly">Every 2 weeks</option>
-              <option value="monthly">Monthly</option>
-              <option value="yearly">Yearly</option>
-            </select>
+            <Field label="Reminder" htmlFor="edit-context" required>
+              <Textarea
+                id="edit-context"
+                rows={4}
+                value={context}
+                onChange={(e) => setContext(e.target.value)}
+                autoFocus
+              />
+            </Field>
+            <Field label="Date" required>
+              <DatePicker
+                value={remindAt}
+                onChange={(d) => setRemindAt(d)}
+                placeholder="Pick a date"
+              />
+            </Field>
+            <Field label="Recurrence">
+              <Select
+                value={recurrence}
+                onChange={(e) => setRecurrence(e.target.value as Recurrence | "")}
+                options={RECURRENCE_OPTIONS}
+                placeholder="No recurrence"
+              />
+            </Field>
           </Stack>
           <div style={{ fontSize: t.fontSizeXs, color: t.colorTextMuted, marginTop: t.spaceMd }}>
             Created {new Date(reminder.created_at).toLocaleString()}
@@ -393,7 +389,6 @@ function ReminderSection({ title, reminders, loading, error, emptyMessage, onEdi
 
 export function ReminderDashboardPage(): React.JSX.Element {
   const [showCreate, setShowCreate] = useState(false);
-  const [showDormant, setShowDormant] = useState(false);
   const [editing, setEditing] = useState<ReminderSummary | null>(null);
 
   const today = useMemo(() => getTodayBounds(), []);
@@ -444,10 +439,11 @@ export function ReminderDashboardPage(): React.JSX.Element {
       margin: "0 auto",
       padding: `${t.spaceXl} ${t.spaceLg}`,
     }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: t.spaceLg }}>
-        <h1 style={{ fontSize: t.fontSize2xl, fontWeight: 700, margin: 0 }}>Reminders</h1>
-        <Button variant="primary" size="sm" onClick={() => setShowCreate(true)}>+ New Reminder</Button>
-      </div>
+      <PageHeader
+        title="Reminders"
+        level={1}
+        trailing={<Button variant="primary" size="sm" onClick={() => setShowCreate(true)}>+ New Reminder</Button>}
+      />
 
       {(overdueData.reminders.length > 0 || overdueData.loading) && (
         <ReminderSection
@@ -488,61 +484,31 @@ export function ReminderDashboardPage(): React.JSX.Element {
       />
 
       {/* Dormant section */}
-      <section>
-        <button
-          type="button"
-          onClick={() => setShowDormant((v) => !v)}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            color: t.colorTextSecondary,
-            fontSize: t.fontSizeMd,
-            fontWeight: 600,
-            padding: 0,
-            display: "flex",
-            alignItems: "center",
-            gap: t.spaceXs,
-          }}
-        >
-          <span style={{
-            display: "inline-block",
-            transition: "transform 0.15s",
-            transform: showDormant ? "rotate(90deg)" : "rotate(0deg)",
-          }}>
-            &#9654;
-          </span>
-          Dormant Reminders
-          {dormantData.total > 0 && (
-            <Badge variant="secondary">{dormantData.total}</Badge>
-          )}
-        </button>
-
-        {showDormant && (
-          <div style={{ marginTop: t.spaceMd }}>
-            {dormantData.error && (
-              <div style={{ color: t.colorError, fontSize: t.fontSizeSm, marginBottom: t.spaceMd }}>{dormantData.error}</div>
-            )}
-            {dormantData.loading && dormantData.reminders.length === 0 && (
-              <Stack gap="sm">
-                <Skeleton height={56} />
-              </Stack>
-            )}
-            {!dormantData.loading && dormantData.reminders.length === 0 && (
-              <EmptyState icon="search" message="No dormant reminders." />
-            )}
-            <Stack gap="sm">
-              {dormantData.reminders.map((r) => (
-                <DormantReminderCard
-                  key={r.id}
-                  reminder={r}
-                  onClick={() => setEditing(r)}
-                />
-              ))}
-            </Stack>
-          </div>
+      <ExpandableCard
+        title={`Dormant Reminders${dormantData.total > 0 ? ` (${dormantData.total})` : ""}`}
+        variant="flat"
+      >
+        {dormantData.error && (
+          <div style={{ color: t.colorError, fontSize: t.fontSizeSm, marginBottom: t.spaceMd }}>{dormantData.error}</div>
         )}
-      </section>
+        {dormantData.loading && dormantData.reminders.length === 0 && (
+          <Stack gap="sm">
+            <Skeleton height={56} />
+          </Stack>
+        )}
+        {!dormantData.loading && dormantData.reminders.length === 0 && (
+          <EmptyState icon="search" message="No dormant reminders." />
+        )}
+        <Stack gap="sm">
+          {dormantData.reminders.map((r) => (
+            <DormantReminderCard
+              key={r.id}
+              reminder={r}
+              onClick={() => setEditing(r)}
+            />
+          ))}
+        </Stack>
+      </ExpandableCard>
 
       {showCreate && (
         <CreateReminderOverlay

@@ -213,11 +213,13 @@ describe("ReminderDashboardPage", () => {
         target: { value: "Water the plants" },
       });
 
-      // Set date input
-      const dateInput = screen.getByDisplayValue("");
-      fireEvent.change(dateInput, {
-        target: { value: "2026-04-15" },
-      });
+      // Open DatePicker and select a day
+      fireEvent.click(screen.getByText("Pick a date"));
+      // Click a visible day number in the calendar popover
+      const dayButtons = screen.getAllByRole("button").filter(
+        (btn) => btn.textContent === "15" && !btn.hasAttribute("aria-expanded"),
+      );
+      fireEvent.click(dayButtons[0]);
 
       fireEvent.click(screen.getByText("Create"));
 
@@ -280,7 +282,7 @@ describe("ReminderDashboardPage", () => {
       setupHook({ dormant: { reminders: dormantReminders, total: 1 } });
       renderWithProviders(<ReminderDashboardPage />);
 
-      fireEvent.click(screen.getByText("Dormant Reminders"));
+      fireEvent.click(screen.getByText(/Dormant Reminders/));
       fireEvent.click(screen.getByText("Old reminder"));
 
       expect(screen.getByText("Dormant Reminder")).toBeInTheDocument();
@@ -300,7 +302,7 @@ describe("ReminderDashboardPage", () => {
       setupHook({ dormant: { reminders: dormantReminders, total: 1 } });
       renderWithProviders(<ReminderDashboardPage />);
 
-      fireEvent.click(screen.getByText("Dormant Reminders"));
+      fireEvent.click(screen.getByText(/Dormant Reminders/));
 
       expect(screen.getByText("Old reminder")).toBeInTheDocument();
     });
