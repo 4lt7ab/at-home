@@ -126,7 +126,7 @@ describe("ReminderService", () => {
   test("invalid recurrence value rejected", async () => {
     expect(
       ctx.reminderService.create([
-        { context: "Valid", remind_at: "2026-05-01T00:00:00.000Z", recurrence: "biweekly" as any },
+        { context: "Valid", remind_at: "2026-05-01T00:00:00.000Z", recurrence: "daily" as any },
       ])
     ).rejects.toThrow(ServiceError);
   });
@@ -209,6 +209,17 @@ describe("ReminderService", () => {
 
     // cleanup
     await ctx.reminderService.remove([weekly.id]);
+  });
+
+  test("dismiss recurring (biweekly) → remind_at advances by 14 days", async () => {
+    const [biweekly] = await ctx.reminderService.create([
+      { context: "Biweekly review", remind_at: "2026-05-01T09:00:00.000Z", recurrence: "biweekly" },
+    ]);
+
+    const dismissed = await ctx.reminderService.dismiss({ id: biweekly.id });
+    expect(dismissed.remind_at).toBe("2026-05-15T09:00:00.000Z");
+
+    await ctx.reminderService.remove([biweekly.id]);
   });
 
   test("dismiss recurring (weekly) → remind_at advances by 7 days", async () => {

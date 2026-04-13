@@ -6,7 +6,7 @@ import { ServiceError } from "../errors";
 import type { ReminderRepository, ReminderFilter } from "../repositories/reminders";
 import type { EventBus } from "../events";
 
-const VALID_RECURRENCES: Recurrence[] = ['weekly', 'monthly', 'yearly'];
+const VALID_RECURRENCES: Recurrence[] = ['weekly', 'biweekly', 'monthly', 'yearly'];
 
 function isValidISODateTime(s: string): boolean {
   const d = new Date(s);
@@ -18,6 +18,9 @@ function advanceRemindAt(remindAt: string, recurrence: Recurrence): string {
   switch (recurrence) {
     case 'weekly':
       d.setUTCDate(d.getUTCDate() + 7);
+      break;
+    case 'biweekly':
+      d.setUTCDate(d.getUTCDate() + 14);
       break;
     case 'monthly':
       d.setUTCMonth(d.getUTCMonth() + 1);
@@ -61,7 +64,7 @@ export class ReminderService implements IReminderService {
         throw new ServiceError("remind_at must be a valid ISO datetime", 400);
       }
       if (input.recurrence !== undefined && !VALID_RECURRENCES.includes(input.recurrence)) {
-        throw new ServiceError("recurrence must be one of: weekly, monthly, yearly", 400);
+        throw new ServiceError("recurrence must be one of: weekly, biweekly, monthly, yearly", 400);
       }
     }
 
@@ -91,7 +94,7 @@ export class ReminderService implements IReminderService {
         throw new ServiceError("remind_at must be a valid ISO datetime", 400);
       }
       if (input.recurrence !== undefined && input.recurrence !== null && !VALID_RECURRENCES.includes(input.recurrence)) {
-        throw new ServiceError("recurrence must be one of: weekly, monthly, yearly", 400);
+        throw new ServiceError("recurrence must be one of: weekly, biweekly, monthly, yearly", 400);
       }
     }
 

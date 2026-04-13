@@ -69,6 +69,7 @@ const reminders = {
   nextWeek: [
     { context: "Quarterly tax payment deadline", remind_at: offsetDay(weekStart, 8, 9) },
     { context: "Car oil change — schedule at Jiffy Lube", remind_at: offsetDay(weekStart, 9, 10), recurrence: "monthly" as const },
+    { context: "Payroll review and approval", remind_at: offsetDay(weekStart, 11, 9), recurrence: "biweekly" as const },
     { context: "Review and merge open PRs before release", remind_at: offsetDay(weekStart, 10, 14) },
     { context: "Anniversary dinner reservation", remind_at: offsetDay(weekStart, 12, 18), recurrence: "yearly" as const },
   ],

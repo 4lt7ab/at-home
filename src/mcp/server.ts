@@ -143,7 +143,7 @@ export function createMcpServer(ctx: McpServiceContext): McpServer {
         items: z.array(z.object({
           context: z.string().max(50000),
           remind_at: z.string(),
-          recurrence: z.enum(["weekly", "monthly", "yearly"]).optional(),
+          recurrence: z.enum(["weekly", "biweekly", "monthly", "yearly"]).optional(),
         })),
       },
     },
@@ -159,7 +159,7 @@ export function createMcpServer(ctx: McpServiceContext): McpServer {
           id: z.string().max(26),
           context: z.string().max(50000).optional(),
           remind_at: z.string().optional(),
-          recurrence: z.enum(["weekly", "monthly", "yearly"]).optional().nullable(),
+          recurrence: z.enum(["weekly", "biweekly", "monthly", "yearly"]).optional().nullable(),
         })),
       },
     },

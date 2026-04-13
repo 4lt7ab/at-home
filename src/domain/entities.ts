@@ -8,7 +8,7 @@ export interface Note {
   updated_at: string;
 }
 
-export type Recurrence = 'weekly' | 'monthly' | 'yearly';
+export type Recurrence = 'weekly' | 'biweekly' | 'monthly' | 'yearly';
 
 export interface Reminder {
   id: string;
