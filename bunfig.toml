@@ -1,2 +1,5 @@
 [test]
-root = "src/domain"
+root = [
+  "src/domain",
+  "tests",
+]
