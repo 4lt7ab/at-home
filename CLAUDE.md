@@ -24,7 +24,23 @@ bun run test:web:watch  # Frontend tests in watch mode
 ./deploy.sh patch    # Bump patch, tag, push (also: minor, major)
 ```
 
-**Testing rule**: `bun run test` runs everything. Always use it. Do not create separate test commands.
+## Testing
+
+`bun run test` runs **all** tests across every layer. Always use it. One command, nothing else needed.
+
+Tests live at three layers:
+
+| Layer | Location | Runner | Covers |
+|-------|----------|--------|--------|
+| Domain | `tests/domain.test.ts` | bun:test | NoteService CRUD, validation, pagination |
+| API | `tests/api.test.ts` | bun:test | Every HTTP endpoint, error responses |
+| Web | `src/web/src/**/*.test.{ts,tsx}` | Vitest + jsdom | Hooks, components, routing, API client |
+
+**Rules for contributors**:
+
+- Every change that touches behavior must include or update tests at the appropriate layer. No exceptions.
+- `bun run test` must pass before committing. If you break tests, fix them before moving on.
+- Keep this file (`CLAUDE.md`) up to date. If you add modules, change structure, or introduce new patterns — update the docs here. This is the source of truth for how the project works.
 
 ## Architecture
 
@@ -92,4 +108,4 @@ Deploy with `./deploy.sh [patch|minor|major]` — bumps version, commits, tags, 
 - **Frontend**: React 19, Vite, TypeScript strict, @4lt7ab/ui component library
 - **Validation**: Zod
 - **IDs**: ULID
-- **Testing**: `bun:test` (domain), Vitest + Testing Library + jsdom (web)
+- **Testing**: `bun:test` (domain + API integration), Vitest + Testing Library + jsdom (web)
