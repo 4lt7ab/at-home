@@ -70,22 +70,24 @@ MCP Server            -+          |
 
 ## Migrations
 
-All database migrations **must be backward compatible**. Users run older app versions against newer schemas during rolling deploys. This means:
+Migrations in `src/domain/db/migrations/` run automatically on startup.
+
+**Patch and minor releases**: migrations **must be backward compatible**. Users run older app versions against newer schemas during rolling upgrades. This means:
 
 - **Add columns** with defaults or as nullable — never add NOT NULL without a default
 - **Drop columns** only after the previous release no longer references them
 - **Rename** via add-new → migrate-data → drop-old across releases, never in one step
 - **Never drop tables** that the prior release still queries
 
-Migrations run automatically on startup. A migration that breaks the prior version breaks every user mid-upgrade.
+**Major releases** may include breaking schema changes. When they do, include a data migration script at `scripts/migrate-to-vX.sh` (where X is the major version). This script must handle the full upgrade path from the previous major version. Document the migration steps in the release tag.
 
 ## Versioning
 
 Semver tracked in `package.json` (`version` field). Releases are git tags (`v0.1.0`, `v0.2.0`, etc.).
 
 - **Patch** (`0.1.x`): bug fixes, no schema changes
-- **Minor** (`0.x.0`): new features, backward-compatible migrations
-- **Major** (`x.0.0`): breaking changes (schema or API)
+- **Minor** (`0.x.0`): new features, backward-compatible migrations only
+- **Major** (`x.0.0`): breaking changes — must ship with `scripts/migrate-to-vX.sh`
 
 Deploy with `./deploy.sh [patch|minor|major]` — bumps version, commits, tags, and pushes.
 
