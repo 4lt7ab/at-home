@@ -26,8 +26,8 @@ vi.mock("../api", () => ({
   deleteNotes: vi.fn(),
 }));
 
-vi.mock("@4lt7ab/ui/content", () => ({
-  Markdown: ({ children }: { children: string }) => (
+vi.mock("react-markdown", () => ({
+  default: ({ children }: { children: string }) => (
     <div data-testid="markdown-content">{children}</div>
   ),
 }));

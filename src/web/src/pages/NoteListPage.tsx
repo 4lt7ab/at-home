@@ -5,7 +5,7 @@ import {
   Input, Textarea, ModalShell, ConfirmDialog, Field,
   PageHeader, SearchInput, Badge,
 } from "@4lt7ab/ui/ui";
-import { Markdown } from "@4lt7ab/ui/content";
+import ReactMarkdown from "react-markdown";
 import type { Note, NoteSummary } from "@domain/entities";
 import { useNotes, useWindowWidth, SMALL_BREAKPOINT, useShortcut } from "../hooks";
 import { fetchNote, createNotes, updateNotes, deleteNotes } from "../api";
@@ -122,7 +122,14 @@ function NoteDetailPanel({ note, onEdit, onDelete }: {
 
       {/* Body */}
       {note.context ? (
-        <Markdown>{note.context}</Markdown>
+        <div style={{
+          fontSize: t.fontSizeBase,
+          lineHeight: t.lineHeightRelaxed,
+          color: t.colorText,
+          fontFamily: t.fontSans,
+        }}>
+          <ReactMarkdown>{note.context}</ReactMarkdown>
+        </div>
       ) : (
         <p style={{
           color: t.colorTextMuted,
