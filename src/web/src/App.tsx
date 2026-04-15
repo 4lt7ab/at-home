@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { semantic as t } from "@4lt7ab/ui/core";
-import { StatusDot, IconButton, ModalShell, ThemePicker } from "@4lt7ab/ui/ui";
+import { StatusDot, ThemePicker } from "@4lt7ab/ui/ui";
+import { ThemeBackground } from "@4lt7ab/ui/animations";
 import { useRealtimeEvents } from "./useRealtimeEvents";
 import { useEventFanOut, useHashRoute, EventSubscriptionContext } from "./hooks";
 import { NoteListPage } from "./pages/NoteListPage";
@@ -43,7 +44,6 @@ function NavLink({ active, onClick, children }: {
 export function App(): React.JSX.Element {
   const { onEvent, subscribeEvents } = useEventFanOut();
   const { connected } = useRealtimeEvents(onEvent);
-  const [showSettings, setShowSettings] = useState(false);
   const { path, navigate } = useHashRoute();
 
   const eventCtx = useMemo(() => ({ subscribeEvents, connected }), [subscribeEvents, connected]);
@@ -52,12 +52,14 @@ export function App(): React.JSX.Element {
 
   return (
     <EventSubscriptionContext.Provider value={eventCtx}>
+      <ThemeBackground />
       <div style={{
+        position: "relative",
+        zIndex: 1,
         display: "flex",
         flexDirection: "column",
         height: "100vh",
         overflow: "hidden",
-        background: t.colorSurfacePage,
         color: t.colorText,
         fontFamily: t.fontSans,
       }}>
@@ -82,27 +84,16 @@ export function App(): React.JSX.Element {
               color={connected ? "green" : "red"}
               size="sm"
             />
-            <IconButton
-              icon="settings"
-              aria-label="Settings"
-              onClick={() => setShowSettings(true)}
-            />
+            <ThemePicker variant="compact" />
           </div>
         </header>
 
         {/* Page content */}
-        <main style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+        <main style={{ flex: 1, overflowY: "auto", minHeight: 0, background: t.colorSurfacePage }}>
           {page === "reminders" ? <ReminderDashboardPage /> : <NoteListPage />}
         </main>
 
-        {/* Settings modal */}
-        {showSettings && (
-          <ModalShell onClose={() => setShowSettings(false)}>
-            <h3 style={{ fontSize: t.fontSizeLg, fontWeight: 600, marginBottom: t.spaceLg }}>Settings</h3>
-            <h4 style={{ fontSize: t.fontSizeSm, fontWeight: 500, color: t.colorTextSecondary, marginBottom: t.spaceMd }}>Theme</h4>
-            <ThemePicker />
-          </ModalShell>
-        )}
+
       </div>
     </EventSubscriptionContext.Provider>
   );

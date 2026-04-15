@@ -33,6 +33,25 @@ export function utcIsoToLocalDate(iso: string): Date {
 }
 
 /**
+ * Format an ISO timestamp as a relative time string (e.g. "3h ago", "2d ago").
+ * Falls back to a short date for anything older than a week.
+ */
+export function formatRelativeTime(iso: string): string {
+  const now = Date.now();
+  const then = new Date(iso).getTime();
+  const diffMs = now - then;
+  if (diffMs < 0) return "just now";
+  const mins = Math.floor(diffMs / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/**
  * Date range for "today" using the LOCAL calendar date.
  *
  * Dates are stored via dateToDayUtcIso which encodes the LOCAL date at midnight

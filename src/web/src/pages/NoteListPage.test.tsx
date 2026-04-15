@@ -9,19 +9,37 @@ import { NoteListPage } from "./NoteListPage";
 
 const mockRefetch = vi.fn();
 
-vi.mock("../hooks", () => ({
-  useNotes: vi.fn(),
-}));
+vi.mock("../hooks", async () => {
+  const actual = await vi.importActual<Record<string, unknown>>("../hooks");
+  return {
+    ...actual,
+    useNotes: vi.fn(),
+    useWindowWidth: vi.fn(() => 1024),
+    SMALL_BREAKPOINT: 768,
+  };
+});
 
 vi.mock("../api", () => ({
+  fetchNote: vi.fn(),
   createNotes: vi.fn(),
+  updateNotes: vi.fn(),
+  deleteNotes: vi.fn(),
+}));
+
+vi.mock("@4lt7ab/ui/content", () => ({
+  Markdown: ({ children }: { children: string }) => (
+    <div data-testid="markdown-content">{children}</div>
+  ),
 }));
 
 import { useNotes } from "../hooks";
-import { createNotes } from "../api";
+import { fetchNote, createNotes, updateNotes, deleteNotes } from "../api";
 
 const mockUseNotes = vi.mocked(useNotes);
+const mockFetchNote = vi.mocked(fetchNote);
 const mockCreateNotes = vi.mocked(createNotes);
+const mockUpdateNotes = vi.mocked(updateNotes);
+const mockDeleteNotes = vi.mocked(deleteNotes);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -38,6 +56,14 @@ function setupHook(overrides: Partial<ReturnType<typeof useNotes>> = {}) {
   });
 }
 
+const FULL_NOTE = {
+  id: "n1",
+  title: "Test Note",
+  context: "Some **markdown** content",
+  created_at: "2026-04-10T12:00:00.000Z",
+  updated_at: "2026-04-10T12:00:00.000Z",
+};
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -45,6 +71,7 @@ function setupHook(overrides: Partial<ReturnType<typeof useNotes>> = {}) {
 describe("NoteListPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFetchNote.mockResolvedValue(FULL_NOTE);
   });
 
   // -------------------------------------------------------------------------
@@ -58,7 +85,7 @@ describe("NoteListPage", () => {
       expect(screen.getByText("Notes")).toBeInTheDocument();
     });
 
-    it("renders NoteCard for each note in the list", () => {
+    it("renders note items in the sidebar", () => {
       const notes = [
         makeNoteSummary({ id: "n1", title: "Note One" }),
         makeNoteSummary({ id: "n2", title: "Note Two" }),
@@ -70,19 +97,17 @@ describe("NoteListPage", () => {
       expect(screen.getByText("Note Two")).toBeInTheDocument();
     });
 
-    it("NoteCard shows 'has context' badge when has_context is true", () => {
-      const notes = [makeNoteSummary({ id: "n1", title: "Context Note", has_context: true })];
-      setupHook({ notes, total: 1 });
+    it("shows total count next to title", () => {
+      const notes = [makeNoteSummary({ id: "n1" })];
+      setupHook({ notes, total: 5 });
       renderWithProviders(<NoteListPage />);
-      expect(screen.getByText("has context")).toBeInTheDocument();
+      expect(screen.getByText("5")).toBeInTheDocument();
     });
 
-    it("NoteCard shows created date", () => {
-      const notes = [makeNoteSummary({ id: "n1", title: "Dated Note" })];
-      setupHook({ notes, total: 1 });
+    it("renders search input", () => {
+      setupHook();
       renderWithProviders(<NoteListPage />);
-      // Date is formatted via toLocaleDateString
-      expect(screen.getByText("Dated Note")).toBeInTheDocument();
+      expect(screen.getByPlaceholderText("Search notes...")).toBeInTheDocument();
     });
   });
 
@@ -91,10 +116,10 @@ describe("NoteListPage", () => {
   // -------------------------------------------------------------------------
 
   describe("empty state", () => {
-    it("shows 'No notes found.' when list is empty", () => {
+    it("shows empty message when no notes exist", () => {
       setupHook({ notes: [], total: 0, loading: false });
       renderWithProviders(<NoteListPage />);
-      expect(screen.getByText("No notes found")).toBeInTheDocument();
+      expect(screen.getByText("No notes yet")).toBeInTheDocument();
     });
   });
 
@@ -103,11 +128,10 @@ describe("NoteListPage", () => {
   // -------------------------------------------------------------------------
 
   describe("loading state", () => {
-    it("shows skeleton when loading=true and notes is empty", () => {
+    it("shows skeletons when loading and notes is empty", () => {
       setupHook({ loading: true, notes: [] });
       renderWithProviders(<NoteListPage />);
-      // Skeleton renders, no notes visible
-      expect(screen.queryByText("No notes found.")).not.toBeInTheDocument();
+      expect(screen.queryByText("No notes yet")).not.toBeInTheDocument();
     });
   });
 
@@ -124,40 +148,68 @@ describe("NoteListPage", () => {
   });
 
   // -------------------------------------------------------------------------
+  // Note detail
+  // -------------------------------------------------------------------------
+
+  describe("note detail", () => {
+    it("auto-loads first note on mount", async () => {
+      const notes = [makeNoteSummary({ id: "n1", title: "First Note" })];
+      setupHook({ notes, total: 1 });
+      renderWithProviders(<NoteListPage />);
+
+      await waitFor(() => {
+        expect(mockFetchNote).toHaveBeenCalledWith("n1");
+      });
+    });
+
+    it("renders note content via Markdown when loaded", async () => {
+      const notes = [makeNoteSummary({ id: "n1", title: "First Note" })];
+      setupHook({ notes, total: 1 });
+      renderWithProviders(<NoteListPage />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("markdown-content")).toBeInTheDocument();
+      });
+      expect(screen.getByTestId("markdown-content")).toHaveTextContent("Some **markdown** content");
+    });
+
+    it("shows edit and delete icon buttons in detail panel", async () => {
+      const notes = [makeNoteSummary({ id: "n1", title: "First Note" })];
+      setupHook({ notes, total: 1 });
+      renderWithProviders(<NoteListPage />);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Edit note")).toBeInTheDocument();
+      });
+      expect(screen.getByLabelText("Delete note")).toBeInTheDocument();
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // CreateNoteOverlay
   // -------------------------------------------------------------------------
 
   describe("CreateNoteOverlay", () => {
-    it("opens on '+ New Note' button click", () => {
+    it("opens on new note button click", () => {
       setupHook();
       renderWithProviders(<NoteListPage />);
 
-      fireEvent.click(screen.getByText("+ New Note"));
+      fireEvent.click(screen.getByLabelText("New note"));
       expect(screen.getByText("New Note")).toBeInTheDocument();
     });
 
-    it("form has title input and context textarea", () => {
+    it("submits with title and context", async () => {
+      mockCreateNotes.mockResolvedValue([{ ...FULL_NOTE, id: "new-1" }]);
       setupHook();
       renderWithProviders(<NoteListPage />);
 
-      fireEvent.click(screen.getByText("+ New Note"));
-
-      expect(screen.getByPlaceholderText("Note title")).toBeInTheDocument();
-      expect(screen.getByPlaceholderText("Context (optional)")).toBeInTheDocument();
-    });
-
-    it("submit calls createNotes with title and context", async () => {
-      mockCreateNotes.mockResolvedValue([]);
-      setupHook();
-      renderWithProviders(<NoteListPage />);
-
-      fireEvent.click(screen.getByText("+ New Note"));
+      fireEvent.click(screen.getByLabelText("New note"));
 
       fireEvent.change(screen.getByPlaceholderText("Note title"), {
         target: { value: "My New Note" },
       });
-      fireEvent.change(screen.getByPlaceholderText("Context (optional)"), {
-        target: { value: "Note context here" },
+      fireEvent.change(screen.getByPlaceholderText("Write something..."), {
+        target: { value: "Note body" },
       });
 
       fireEvent.click(screen.getByText("Create"));
@@ -165,37 +217,61 @@ describe("NoteListPage", () => {
       await waitFor(() => {
         expect(mockCreateNotes).toHaveBeenCalledWith([{
           title: "My New Note",
-          context: "Note context here",
+          context: "Note body",
         }]);
       });
     });
 
-    it("closes on Cancel button click", () => {
+    it("closes on Cancel", () => {
       setupHook();
       renderWithProviders(<NoteListPage />);
 
-      fireEvent.click(screen.getByText("+ New Note"));
+      fireEvent.click(screen.getByLabelText("New note"));
       expect(screen.getByText("New Note")).toBeInTheDocument();
 
       fireEvent.click(screen.getByText("Cancel"));
-
       expect(screen.queryByPlaceholderText("Note title")).not.toBeInTheDocument();
     });
+  });
 
-    it("calls refetch after successful creation", async () => {
-      mockCreateNotes.mockResolvedValue([]);
-      setupHook();
+  // -------------------------------------------------------------------------
+  // EditNoteOverlay
+  // -------------------------------------------------------------------------
+
+  describe("EditNoteOverlay", () => {
+    it("opens when edit button is clicked and pre-fills fields", async () => {
+      const notes = [makeNoteSummary({ id: "n1", title: "First Note" })];
+      setupHook({ notes, total: 1 });
       renderWithProviders(<NoteListPage />);
 
-      fireEvent.click(screen.getByText("+ New Note"));
-      fireEvent.change(screen.getByPlaceholderText("Note title"), {
-        target: { value: "New Note" },
+      await waitFor(() => {
+        expect(screen.getByLabelText("Edit note")).toBeInTheDocument();
       });
-      fireEvent.click(screen.getByText("Create"));
+
+      fireEvent.click(screen.getByLabelText("Edit note"));
+
+      expect(screen.getByText("Edit Note")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("Test Note")).toBeInTheDocument();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Delete
+  // -------------------------------------------------------------------------
+
+  describe("delete", () => {
+    it("shows confirm dialog when delete button is clicked", async () => {
+      const notes = [makeNoteSummary({ id: "n1", title: "First Note" })];
+      setupHook({ notes, total: 1 });
+      renderWithProviders(<NoteListPage />);
 
       await waitFor(() => {
-        expect(mockRefetch).toHaveBeenCalled();
+        expect(screen.getByLabelText("Delete note")).toBeInTheDocument();
       });
+
+      fireEvent.click(screen.getByLabelText("Delete note"));
+
+      expect(screen.getByText("Delete this note?")).toBeInTheDocument();
     });
   });
 });

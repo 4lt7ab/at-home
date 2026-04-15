@@ -30,18 +30,15 @@ vi.mock("@4lt7ab/ui/ui", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("@4lt7ab/ui/ui");
   return {
     ...actual,
-    ThemePicker: () => <div data-testid="theme-picker" />,
-    IconButton: ({ "aria-label": label, onClick }: { "aria-label": string; onClick?: () => void }) => (
-      <button data-testid={`icon-button-${label.toLowerCase()}`} aria-label={label} onClick={onClick} />
-    ),
-    ModalShell: ({ children, onClose }: { children: React.ReactNode; onClose: () => void }) => (
-      <div data-testid="modal-shell" role="dialog">
-        <button data-testid="modal-close" onClick={onClose} />
-        {children}
-      </div>
+    ThemePicker: ({ variant }: { variant?: string }) => (
+      <div data-testid="theme-picker" data-variant={variant} />
     ),
   };
 });
+
+vi.mock("@4lt7ab/ui/animations", () => ({
+  ThemeBackground: () => null,
+}));
 
 vi.mock("./pages/NoteListPage", () => ({
   NoteListPage: () => (
@@ -59,7 +56,7 @@ vi.mock("./pages/ReminderDashboardPage", () => ({
 // Imports
 // ---------------------------------------------------------------------------
 
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { App } from "./App";
 
 // ---------------------------------------------------------------------------
@@ -93,23 +90,12 @@ describe("App", () => {
     });
   });
 
-  describe("settings modal", () => {
-    it("opens when the settings icon is clicked", () => {
+  describe("theme picker", () => {
+    it("renders compact ThemePicker in the header", () => {
       render(<App />);
-      expect(screen.queryByTestId("modal-shell")).not.toBeInTheDocument();
-
-      fireEvent.click(screen.getByTestId("icon-button-settings"));
-      expect(screen.getByTestId("modal-shell")).toBeInTheDocument();
-      expect(screen.getByTestId("theme-picker")).toBeInTheDocument();
-    });
-
-    it("closes when the modal close is triggered", () => {
-      render(<App />);
-      fireEvent.click(screen.getByTestId("icon-button-settings"));
-      expect(screen.getByTestId("modal-shell")).toBeInTheDocument();
-
-      fireEvent.click(screen.getByTestId("modal-close"));
-      expect(screen.queryByTestId("modal-shell")).not.toBeInTheDocument();
+      const picker = screen.getByTestId("theme-picker");
+      expect(picker).toBeInTheDocument();
+      expect(picker).toHaveAttribute("data-variant", "compact");
     });
   });
 });

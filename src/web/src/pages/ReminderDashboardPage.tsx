@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { semantic as t } from "@4lt7ab/ui/core";
 import {
-  Card, Badge, Button, Stack, Skeleton, EmptyState,
+  Card, Badge, Button, IconButton, Stack, Skeleton, EmptyState,
   Textarea, ModalShell, ConfirmDialog, Field, DatePicker,
   PageHeader, ExpandableCard,
 } from "@4lt7ab/ui/ui";
@@ -286,26 +286,42 @@ function EditReminderOverlay({ reminder, onClose, onChanged }: {
 // ReminderCard
 // ---------------------------------------------------------------------------
 
-function ReminderCard({ reminder, onClick }: {
+function ReminderCard({ reminder, onClick, onDismiss }: {
   reminder: ReminderSummary;
   onClick: () => void;
+  onDismiss: () => void;
 }): React.JSX.Element {
   return (
     <Card>
-      <div
-        style={{ cursor: "pointer" }}
-        onClick={onClick}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => { if (e.key === "Enter") onClick(); }}
-      >
-        <div style={{ fontSize: t.fontSizeMd, fontWeight: 500 }}>{reminder.context_preview}</div>
-        <div style={{ display: "flex", gap: t.spaceXs, marginTop: t.spaceXs, flexWrap: "wrap", alignItems: "center" }}>
-          <div style={{ fontSize: t.fontSizeXs, color: t.colorTextMuted }}>
-            {formatRemindAt(reminder.remind_at)}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: t.spaceSm }}>
+        <div
+          style={{ cursor: "pointer", flex: 1, minWidth: 0 }}
+          onClick={onClick}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === "Enter") onClick(); }}
+        >
+          <div style={{ fontSize: t.fontSizeSm, fontWeight: 500 }}>{reminder.context_preview}</div>
+          <div style={{ display: "flex", gap: t.spaceXs, marginTop: t.spaceXs, flexWrap: "wrap", alignItems: "center" }}>
+            <div style={{ fontSize: t.fontSizeXs, color: t.colorTextMuted }}>
+              {formatRemindAt(reminder.remind_at)}
+            </div>
+            {reminder.recurrence && <Badge variant="secondary">{reminder.recurrence}</Badge>}
           </div>
-          {reminder.recurrence && <Badge variant="secondary">{reminder.recurrence}</Badge>}
         </div>
+        <IconButton
+          icon="check"
+          size={16}
+          onClick={(e) => { e.stopPropagation(); onDismiss(); }}
+          aria-label={`Dismiss "${reminder.context_preview}"`}
+          style={{
+            width: 28,
+            height: 28,
+            border: `1px solid ${t.colorBorder}`,
+            color: t.colorSuccess,
+            flexShrink: 0,
+          }}
+        />
       </div>
     </Card>
   );
@@ -341,13 +357,14 @@ function DormantReminderCard({ reminder, onClick }: {
 // ReminderSection
 // ---------------------------------------------------------------------------
 
-function ReminderSection({ title, reminders, loading, error, emptyMessage, onEdit }: {
+function ReminderSection({ title, reminders, loading, error, emptyMessage, onEdit, onDismiss }: {
   title: string;
   reminders: ReminderSummary[];
   loading: boolean;
   error: string | null;
   emptyMessage: string;
   onEdit: (r: ReminderSummary) => void;
+  onDismiss: (r: ReminderSummary) => void;
 }): React.JSX.Element {
   return (
     <section style={{ marginBottom: t.spaceXl }}>
@@ -364,7 +381,7 @@ function ReminderSection({ title, reminders, loading, error, emptyMessage, onEdi
       )}
       <Stack gap="sm">
         {reminders.map((r) => (
-          <ReminderCard key={r.id} reminder={r} onClick={() => onEdit(r)} />
+          <ReminderCard key={r.id} reminder={r} onClick={() => onEdit(r)} onDismiss={() => onDismiss(r)} />
         ))}
       </Stack>
     </section>
@@ -428,6 +445,15 @@ export function ReminderDashboardPage(): React.JSX.Element {
     dormantData.refetch();
   }
 
+  async function handleQuickDismiss(reminder: ReminderSummary): Promise<void> {
+    try {
+      await dismissReminders([{ id: reminder.id }]);
+      refetchAll();
+    } catch {
+      // Dismiss failed silently — user can retry via edit modal
+    }
+  }
+
   return (
     <div style={{
       maxWidth: 800,
@@ -449,6 +475,7 @@ export function ReminderDashboardPage(): React.JSX.Element {
           error={overdueData.error}
           emptyMessage="No overdue reminders."
           onEdit={setEditing}
+          onDismiss={handleQuickDismiss}
         />
       )}
 
@@ -459,6 +486,7 @@ export function ReminderDashboardPage(): React.JSX.Element {
         error={todayData.error}
         emptyMessage="No reminders today."
         onEdit={setEditing}
+        onDismiss={handleQuickDismiss}
       />
 
       <ReminderSection
@@ -468,6 +496,7 @@ export function ReminderDashboardPage(): React.JSX.Element {
         error={thisWeekData.error}
         emptyMessage="No reminders this week."
         onEdit={setEditing}
+        onDismiss={handleQuickDismiss}
       />
 
       <ReminderSection
@@ -477,6 +506,7 @@ export function ReminderDashboardPage(): React.JSX.Element {
         error={nextWeekData.error}
         emptyMessage="No reminders next week."
         onEdit={setEditing}
+        onDismiss={handleQuickDismiss}
       />
 
       {/* Dormant section */}

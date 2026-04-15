@@ -1,5 +1,42 @@
 import { describe, it, expect } from "vitest";
-import { formatRemindAt, dateToDayUtcIso, utcIsoToLocalDate, getTodayBounds, getWeekBounds } from "./utils";
+import { formatRemindAt, dateToDayUtcIso, utcIsoToLocalDate, getTodayBounds, getWeekBounds, formatRelativeTime } from "./utils";
+
+// ---------------------------------------------------------------------------
+// formatRelativeTime
+// ---------------------------------------------------------------------------
+
+describe("formatRelativeTime", () => {
+  it("returns 'just now' for timestamps less than a minute ago", () => {
+    const now = new Date().toISOString();
+    expect(formatRelativeTime(now)).toBe("just now");
+  });
+
+  it("returns minutes for recent timestamps", () => {
+    const fiveMinAgo = new Date(Date.now() - 5 * 60_000).toISOString();
+    expect(formatRelativeTime(fiveMinAgo)).toBe("5m ago");
+  });
+
+  it("returns hours for timestamps within a day", () => {
+    const threeHoursAgo = new Date(Date.now() - 3 * 3600_000).toISOString();
+    expect(formatRelativeTime(threeHoursAgo)).toBe("3h ago");
+  });
+
+  it("returns days for timestamps within a week", () => {
+    const twoDaysAgo = new Date(Date.now() - 2 * 86400_000).toISOString();
+    expect(formatRelativeTime(twoDaysAgo)).toBe("2d ago");
+  });
+
+  it("returns short date for timestamps older than a week", () => {
+    const result = formatRelativeTime("2025-01-15T12:00:00.000Z");
+    expect(result).toContain("Jan");
+    expect(result).toContain("15");
+  });
+
+  it("returns 'just now' for future timestamps", () => {
+    const future = new Date(Date.now() + 60_000).toISOString();
+    expect(formatRelativeTime(future)).toBe("just now");
+  });
+});
 
 // ---------------------------------------------------------------------------
 // formatRemindAt
