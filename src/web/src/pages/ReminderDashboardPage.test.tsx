@@ -232,6 +232,39 @@ describe("ReminderDashboardPage", () => {
       });
     });
 
+    it("submits with selected recurrence value", async () => {
+      mockCreateReminders.mockResolvedValue([]);
+      setupHook();
+      renderWithProviders(<ReminderDashboardPage />);
+
+      fireEvent.click(screen.getByText("+ New Reminder"));
+
+      fireEvent.change(screen.getByPlaceholderText("What do you want to be reminded about?"), {
+        target: { value: "Water the plants" },
+      });
+
+      // Open DatePicker and select a day
+      fireEvent.click(screen.getByText("Pick a date"));
+      const dayButtons = screen.getAllByRole("button").filter(
+        (btn) => btn.textContent === "15" && !btn.hasAttribute("aria-expanded"),
+      );
+      fireEvent.click(dayButtons[0]);
+
+      // Select recurrence via native <select>
+      const recurrenceSelect = screen.getByDisplayValue("No recurrence");
+      fireEvent.change(recurrenceSelect, { target: { value: "weekly" } });
+
+      fireEvent.click(screen.getByText("Create"));
+
+      await waitFor(() => {
+        expect(mockCreateReminders).toHaveBeenCalledWith([{
+          context: "Water the plants",
+          remind_at: expect.any(String),
+          recurrence: "weekly",
+        }]);
+      });
+    });
+
     it("closes on Cancel button click", () => {
       setupHook();
       renderWithProviders(<ReminderDashboardPage />);

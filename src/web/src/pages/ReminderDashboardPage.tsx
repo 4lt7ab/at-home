@@ -2,49 +2,13 @@ import { useState, useMemo } from "react";
 import { semantic as t } from "@4lt7ab/ui/core";
 import {
   Card, Badge, Button, Stack, Skeleton, EmptyState,
-  Textarea, ModalShell, ConfirmDialog, Field, Select, DatePicker,
+  Textarea, ModalShell, ConfirmDialog, Field, DatePicker,
   PageHeader, ExpandableCard,
 } from "@4lt7ab/ui/ui";
 import type { ReminderSummary, Recurrence } from "@domain/entities";
 import { useReminders } from "../hooks";
 import { createReminders, dismissReminders, updateReminders, deleteReminders } from "../api";
-
-// ---------------------------------------------------------------------------
-// Date helpers
-// ---------------------------------------------------------------------------
-
-function getTodayBounds(): { start: string; end: string } {
-  const now = new Date();
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
-  return { start: start.toISOString(), end: end.toISOString() };
-}
-
-function getWeekBounds(weeksFromNow: number): { start: string; end: string } {
-  const now = new Date();
-  const day = now.getUTCDay(); // 0=Sun, 1=Mon, ... 6=Sat
-  const sunday = new Date(Date.UTC(
-    now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - day + weeksFromNow * 7,
-  ));
-  const saturday = new Date(sunday.getTime() + 7 * 24 * 60 * 60 * 1000 - 1);
-  return {
-    start: sunday.toISOString(),
-    end: saturday.toISOString(),
-  };
-}
-
-function formatRemindAt(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
-}
-
-/** Convert a Date object to midnight UTC ISO string (date-only precision). */
-function dateToDayUtcIso(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return new Date(`${y}-${m}-${d}T00:00:00.000Z`).toISOString();
-}
+import { formatRemindAt, dateToDayUtcIso, utcIsoToLocalDate, getTodayBounds, getWeekBounds } from "../utils";
 
 const RECURRENCE_OPTIONS = [
   { value: "weekly", label: "Weekly" },
@@ -52,6 +16,22 @@ const RECURRENCE_OPTIONS = [
   { value: "monthly", label: "Monthly" },
   { value: "yearly", label: "Yearly" },
 ];
+
+const selectStyle: React.CSSProperties = {
+  display: "block",
+  width: "100%",
+  padding: `${t.spaceSm} ${t.spaceMd}`,
+  fontSize: t.fontSizeSm,
+  lineHeight: t.lineHeightTight,
+  fontFamily: t.fontSans,
+  color: t.colorText,
+  background: t.colorSurfaceInput,
+  border: `1px solid ${t.colorBorder}`,
+  borderRadius: t.radiusMd,
+  outline: "none",
+  boxSizing: "border-box" as const,
+  cursor: "pointer",
+};
 
 // ---------------------------------------------------------------------------
 // CreateReminderOverlay
@@ -111,12 +91,16 @@ function CreateReminderOverlay({ onClose, onCreated }: {
             />
           </Field>
           <Field label="Recurrence">
-            <Select
+            <select
               value={recurrence}
               onChange={(e) => setRecurrence(e.target.value as Recurrence | "")}
-              options={RECURRENCE_OPTIONS}
-              placeholder="No recurrence"
-            />
+              style={selectStyle}
+            >
+              <option value="">No recurrence</option>
+              {RECURRENCE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
           </Field>
         </Stack>
         {error && <div style={{ color: t.colorError, fontSize: t.fontSizeXs, marginTop: t.spaceXs }}>{error}</div>}
@@ -139,7 +123,7 @@ function EditReminderOverlay({ reminder, onClose, onChanged }: {
   onChanged: () => void;
 }): React.JSX.Element {
   const [context, setContext] = useState(reminder.context);
-  const [remindAt, setRemindAt] = useState<Date | undefined>(new Date(reminder.remind_at));
+  const [remindAt, setRemindAt] = useState<Date | undefined>(utcIsoToLocalDate(reminder.remind_at));
   const [recurrence, setRecurrence] = useState<Recurrence | "">(reminder.recurrence ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -239,12 +223,16 @@ function EditReminderOverlay({ reminder, onClose, onChanged }: {
               />
             </Field>
             <Field label="Recurrence">
-              <Select
+              <select
                 value={recurrence}
                 onChange={(e) => setRecurrence(e.target.value as Recurrence | "")}
-                options={RECURRENCE_OPTIONS}
-                placeholder="No recurrence"
-              />
+                style={selectStyle}
+              >
+                <option value="">No recurrence</option>
+                {RECURRENCE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
             </Field>
           </Stack>
           <div style={{ fontSize: t.fontSizeXs, color: t.colorTextMuted, marginTop: t.spaceMd }}>
@@ -395,8 +383,15 @@ export function ReminderDashboardPage(): React.JSX.Element {
   const thisWeek = useMemo(() => getWeekBounds(0), []);
   const nextWeek = useMemo(() => getWeekBounds(1), []);
 
+  // Overdue = strictly before today (remind_at < today.start).
+  // The repo uses <=, so subtract 1ms to get strict less-than.
+  const overdueEnd = useMemo(
+    () => new Date(new Date(today.start).getTime() - 1).toISOString(),
+    [today.start],
+  );
+
   const overdueData = useReminders({
-    remind_at_to: today.start,
+    remind_at_to: overdueEnd,
     status: "active",
     limit: 200,
   });
