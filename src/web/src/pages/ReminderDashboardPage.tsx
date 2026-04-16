@@ -54,7 +54,7 @@ function CreateReminderOverlay({ onClose, onCreated }: {
   }
 
   return (
-    <ModalShell onClose={onClose} style={{ background: t.colorSurfaceSolid }}>
+    <ModalShell onClose={onClose}>
       <form onSubmit={handleSubmit}>
         <h3 style={{ fontSize: t.fontSizeLg, fontWeight: t.fontWeightSemibold, marginBottom: t.spaceLg }}>New Reminder</h3>
         <Stack gap="sm">
@@ -84,10 +84,12 @@ function CreateReminderOverlay({ onClose, onCreated }: {
           </Field>
         </Stack>
         {error && <div style={{ color: t.colorError, fontSize: t.fontSizeXs, marginTop: t.spaceXs }}>{error}</div>}
-        <Stack direction="horizontal" gap="sm" style={{ marginTop: t.spaceLg, justifyContent: "flex-end" }}>
-          <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" type="submit" disabled={busy}>{busy ? "Creating..." : "Create"}</Button>
-        </Stack>
+        <div style={{ marginTop: t.spaceLg }}>
+          <Stack direction="horizontal" gap="sm" justify="end">
+            <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
+            <Button variant="primary" type="submit" disabled={busy}>{busy ? "Creating..." : "Create"}</Button>
+          </Stack>
+        </div>
       </form>
     </ModalShell>
   );
@@ -168,7 +170,7 @@ function EditReminderOverlay({ reminder, onClose, onChanged }: {
 
   return (
     <>
-      <ModalShell onClose={onClose} style={{ background: t.colorSurfaceSolid }}>
+      <ModalShell onClose={onClose}>
         <form onSubmit={handleSave}>
           <h3 style={{ fontSize: t.fontSizeLg, fontWeight: t.fontWeightSemibold, marginBottom: t.spaceLg }}>
             {isDormant ? "Dormant Reminder" : "Edit Reminder"}
@@ -226,7 +228,7 @@ function EditReminderOverlay({ reminder, onClose, onChanged }: {
                 </Button>
               )}
             </div>
-            <Stack direction="horizontal" gap="sm">
+            <Stack direction="horizontal" gap="sm" justify="end">
               <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
               <Button variant="primary" type="submit" disabled={busy}>{busy ? "Saving..." : "Save"}</Button>
             </Stack>
@@ -283,7 +285,7 @@ function ReminderCard({ reminder, onClick, onDismiss, index }: {
               <div style={{ fontSize: t.fontSizeXs, color: t.colorTextMuted }}>
                 {formatRemindAt(reminder.remind_at)}
               </div>
-              {reminder.recurrence && <Badge variant="secondary">{reminder.recurrence}</Badge>}
+              {reminder.recurrence && <Badge variant="info">{reminder.recurrence}</Badge>}
             </div>
           </div>
           <IconButton
@@ -292,11 +294,6 @@ function ReminderCard({ reminder, onClick, onDismiss, index }: {
             buttonSize="sm"
             onClick={(e) => { e.stopPropagation(); onDismiss(); }}
             aria-label={`Dismiss "${reminder.context_preview}"`}
-            style={{
-              border: `1px solid ${t.colorBorder}`,
-              color: t.colorSuccess,
-              flexShrink: 0,
-            }}
           />
         </div>
       </Card>

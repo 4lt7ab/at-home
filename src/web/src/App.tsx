@@ -1,6 +1,6 @@
 import { useMemo, useCallback } from "react";
 import { semantic as t } from "@4lt7ab/ui/core";
-import { StatusDot, Surface, TabStrip, ThemePicker } from "@4lt7ab/ui/ui";
+import { StatusDot, TabStrip, ThemePicker } from "@4lt7ab/ui/ui";
 import { ThemeBackground } from "@4lt7ab/ui/animations";
 import { useRealtimeEvents } from "./useRealtimeEvents";
 import { useEventFanOut, useHashRoute, EventSubscriptionContext } from "./hooks";
@@ -44,19 +44,16 @@ export function App(): React.JSX.Element {
         fontFamily: t.fontSans,
       }}>
         {/* Top bar */}
-        <Surface
-          level="panel"
-          radius="none"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            height: 48,
-            padding: `0 ${t.spaceLg}`,
-            borderBottom: `1px solid ${t.colorBorder}`,
-            flexShrink: 0,
-          }}
-        >
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          height: 48,
+          padding: `0 ${t.spaceLg}`,
+          borderBottom: `1px solid ${t.colorBorder}`,
+          flexShrink: 0,
+          background: t.colorSurfacePanel,
+        }}>
           <TabStrip
             tabs={NAV_TABS as unknown as { key: string; label: string }[]}
             activeKey={page}
@@ -65,13 +62,12 @@ export function App(): React.JSX.Element {
           />
           <div style={{ display: "flex", alignItems: "center", gap: t.spaceSm }}>
             <StatusDot
-              status={connected ? "connected" : "disconnected"}
-              color={connected ? "green" : "red"}
+              variant={connected ? "success" : "error"}
               size="sm"
             />
             <ThemePicker variant="compact" />
           </div>
-        </Surface>
+        </div>
 
         {/* Page content — Surface provides the page background */}
         <main style={{ flex: 1, overflowY: "auto", minHeight: 0, background: t.colorSurfacePage }}>

@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { semantic as t, staggerStyle } from "@4lt7ab/ui/core";
 import {
-  Button, IconButton, Card, Stack, Skeleton, EmptyState, Surface,
+  Button, IconButton, Card, Stack, Skeleton, EmptyState,
   Input, Textarea, ModalShell, ConfirmDialog, Field,
-  SearchInput,
+  SearchInput, Surface,
 } from "@4lt7ab/ui/ui";
 import { Markdown } from "@4lt7ab/ui/content";
 import type { Note, NoteSummary } from "@domain/entities";
@@ -82,7 +82,8 @@ function NoteDetailPanel({ note, onEdit, onDelete }: {
 }): React.JSX.Element {
   return (
     <div style={{ padding: `${t.spaceXl} ${t.spaceLg}`, maxWidth: 720 }}>
-      <Surface level="solid" padding="lg" border radius="lg" style={{ ...staggerStyle(0, { duration: 0.25 }) }}>
+      <div style={staggerStyle(0, { duration: 0.25 })}>
+      <Surface level="solid" padding="lg" border radius="lg">
         {/* Header */}
         <div style={{
           display: "flex",
@@ -135,6 +136,7 @@ function NoteDetailPanel({ note, onEdit, onDelete }: {
           </p>
         )}
       </Surface>
+      </div>
     </div>
   );
 }
@@ -172,7 +174,7 @@ function CreateNoteOverlay({ onClose, onCreated }: {
   }
 
   return (
-    <ModalShell onClose={onClose} maxWidth={560} style={{ background: t.colorSurfaceSolid }}>
+    <ModalShell onClose={onClose} maxWidth={560}>
       <form onSubmit={handleSubmit}>
         <h3 style={{ fontSize: t.fontSizeLg, fontWeight: t.fontWeightSemibold, marginBottom: t.spaceLg }}>New Note</h3>
         <Stack gap="sm">
@@ -184,10 +186,12 @@ function CreateNoteOverlay({ onClose, onCreated }: {
           </Field>
         </Stack>
         {error && <div style={{ color: t.colorError, fontSize: t.fontSizeXs, marginTop: t.spaceXs }}>{error}</div>}
-        <Stack direction="horizontal" gap="sm" style={{ marginTop: t.spaceLg, justifyContent: "flex-end" }}>
-          <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" type="submit" disabled={busy}>{busy ? "Creating..." : "Create"}</Button>
-        </Stack>
+        <div style={{ marginTop: t.spaceLg }}>
+          <Stack direction="horizontal" gap="sm" justify="end">
+            <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
+            <Button variant="primary" type="submit" disabled={busy}>{busy ? "Creating..." : "Create"}</Button>
+          </Stack>
+        </div>
       </form>
     </ModalShell>
   );
@@ -228,7 +232,7 @@ function EditNoteOverlay({ note, onClose, onSaved }: {
   }
 
   return (
-    <ModalShell onClose={onClose} maxWidth={560} style={{ background: t.colorSurfaceSolid }}>
+    <ModalShell onClose={onClose} maxWidth={560}>
       <form onSubmit={handleSubmit}>
         <h3 style={{ fontSize: t.fontSizeLg, fontWeight: t.fontWeightSemibold, marginBottom: t.spaceLg }}>Edit Note</h3>
         <Stack gap="sm">
@@ -240,10 +244,12 @@ function EditNoteOverlay({ note, onClose, onSaved }: {
           </Field>
         </Stack>
         {error && <div style={{ color: t.colorError, fontSize: t.fontSizeXs, marginTop: t.spaceXs }}>{error}</div>}
-        <Stack direction="horizontal" gap="sm" style={{ marginTop: t.spaceLg, justifyContent: "flex-end" }}>
-          <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" type="submit" disabled={busy}>{busy ? "Saving..." : "Save"}</Button>
-        </Stack>
+        <div style={{ marginTop: t.spaceLg }}>
+          <Stack direction="horizontal" gap="sm" justify="end">
+            <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
+            <Button variant="primary" type="submit" disabled={busy}>{busy ? "Saving..." : "Save"}</Button>
+          </Stack>
+        </div>
       </form>
     </ModalShell>
   );
@@ -341,19 +347,16 @@ export function NoteListPage(): React.JSX.Element {
     }}>
       {/* Left panel: note list */}
       {(!showingDetail) && (
-        <Surface
-          level="panel"
-          radius="none"
-          style={{
-            width: isDesktop ? 320 : "100%",
-            minWidth: isDesktop ? 320 : undefined,
-            borderRight: isDesktop ? `1px solid ${t.colorBorder}` : "none",
-            display: "flex",
-            flexDirection: "column",
-            height: "100%",
-            overflow: "hidden",
-          }}
-        >
+        <div style={{
+          width: isDesktop ? 320 : "100%",
+          minWidth: isDesktop ? 320 : undefined,
+          borderRight: isDesktop ? `1px solid ${t.colorBorder}` : "none",
+          display: "flex",
+          flexDirection: "column",
+          height: "100%",
+          overflow: "hidden",
+          background: t.colorSurfacePanel,
+        }}>
           {/* List header */}
           <div style={{ padding: `${t.spaceMd} ${t.spaceMd} 0` }}>
             <div style={{
@@ -383,10 +386,6 @@ export function NoteListPage(): React.JSX.Element {
                 buttonSize="sm"
                 aria-label="New note"
                 onClick={() => setShowCreate(true)}
-                style={{
-                  border: `1px solid ${t.colorBorder}`,
-                  color: t.colorText,
-                }}
               />
             </div>
             <SearchInput
@@ -408,11 +407,13 @@ export function NoteListPage(): React.JSX.Element {
             )}
 
             {loading && notes.length === 0 && (
-              <Stack gap="xs" style={{ padding: `0 ${t.spaceXs}` }}>
-                <Skeleton height={48} />
-                <Skeleton height={48} />
-                <Skeleton height={48} />
-              </Stack>
+              <div style={{ padding: `0 ${t.spaceXs}` }}>
+                <Stack gap="xs">
+                  <Skeleton height={48} />
+                  <Skeleton height={48} />
+                  <Skeleton height={48} />
+                </Stack>
+              </div>
             )}
 
             {!loading && notes.length === 0 && (
@@ -437,7 +438,7 @@ export function NoteListPage(): React.JSX.Element {
               />
             ))}
           </div>
-        </Surface>
+        </div>
       )}
 
       {/* Right panel: note detail */}
@@ -450,8 +451,12 @@ export function NoteListPage(): React.JSX.Element {
           {loadingDetail && (
             <div style={{ padding: `${t.spaceXl} ${t.spaceLg}`, maxWidth: 720 }}>
               <Skeleton height={32} width="60%" />
-              <Skeleton height={16} width="40%" style={{ marginTop: t.spaceSm }} />
-              <Skeleton height={200} style={{ marginTop: t.spaceLg }} />
+              <div style={{ marginTop: t.spaceSm }}>
+                <Skeleton height={16} width="40%" />
+              </div>
+              <div style={{ marginTop: t.spaceLg }}>
+                <Skeleton height={200} />
+              </div>
             </div>
           )}
 
@@ -502,17 +507,14 @@ export function NoteListPage(): React.JSX.Element {
           height: "100%",
         }}>
           {/* Mobile toolbar */}
-          <Surface
-            level="panel"
-            radius="none"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: `${t.spaceSm} ${t.spaceMd}`,
-              borderBottom: `1px solid ${t.colorBorder}`,
-            }}
-          >
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: `${t.spaceSm} ${t.spaceMd}`,
+            borderBottom: `1px solid ${t.colorBorder}`,
+            background: t.colorSurfacePanel,
+          }}>
             <Button variant="ghost" size="sm" onClick={handleBack}>
               ← Back
             </Button>
@@ -522,17 +524,15 @@ export function NoteListPage(): React.JSX.Element {
               buttonSize="sm"
               aria-label="New note"
               onClick={() => setShowCreate(true)}
-              style={{
-                border: `1px solid ${t.colorBorder}`,
-                color: t.colorText,
-              }}
             />
-          </Surface>
+          </div>
 
           {loadingDetail && (
             <div style={{ padding: `${t.spaceXl} ${t.spaceLg}` }}>
               <Skeleton height={32} width="60%" />
-              <Skeleton height={200} style={{ marginTop: t.spaceLg }} />
+              <div style={{ marginTop: t.spaceLg }}>
+                <Skeleton height={200} />
+              </div>
             </div>
           )}
 

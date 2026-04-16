@@ -23,7 +23,7 @@
     "test:web:watch": "cd src/web && vitest"
   },
   "dependencies": {
-    "@4lt7ab/ui": "github:4lt7ab/ui#v0.2.25",
+    "@4lt7ab/ui": "github:4lt7ab/ui#v0.2.26",
     "@modelcontextprotocol/sdk": "1.27.1",
     "hono": "4.12.9",
     "postgres": "^3.4.9",
