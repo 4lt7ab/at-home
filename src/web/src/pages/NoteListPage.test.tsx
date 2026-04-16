@@ -119,7 +119,7 @@ describe("NoteListPage", () => {
     it("shows empty message when no notes exist", () => {
       setupHook({ notes: [], total: 0, loading: false });
       renderWithProviders(<NoteListPage />);
-      expect(screen.getByText("No notes yet")).toBeInTheDocument();
+      expect(screen.getByText("No notes yet — write your first one")).toBeInTheDocument();
     });
   });
 
@@ -131,7 +131,7 @@ describe("NoteListPage", () => {
     it("shows skeletons when loading and notes is empty", () => {
       setupHook({ loading: true, notes: [] });
       renderWithProviders(<NoteListPage />);
-      expect(screen.queryByText("No notes yet")).not.toBeInTheDocument();
+      expect(screen.queryByText("No notes yet — write your first one")).not.toBeInTheDocument();
     });
   });
 

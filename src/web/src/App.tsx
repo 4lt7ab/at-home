@@ -1,41 +1,16 @@
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { semantic as t } from "@4lt7ab/ui/core";
-import { StatusDot, ThemePicker } from "@4lt7ab/ui/ui";
+import { StatusDot, Surface, TabStrip, ThemePicker } from "@4lt7ab/ui/ui";
 import { ThemeBackground } from "@4lt7ab/ui/animations";
 import { useRealtimeEvents } from "./useRealtimeEvents";
 import { useEventFanOut, useHashRoute, EventSubscriptionContext } from "./hooks";
 import { NoteListPage } from "./pages/NoteListPage";
 import { ReminderDashboardPage } from "./pages/ReminderDashboardPage";
 
-// ---------------------------------------------------------------------------
-// NavLink
-// ---------------------------------------------------------------------------
-
-function NavLink({ active, onClick, children }: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}): React.JSX.Element {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        background: "none",
-        border: "none",
-        cursor: "pointer",
-        fontSize: t.fontSizeSm,
-        fontWeight: active ? 600 : 400,
-        color: active ? t.colorText : t.colorTextMuted,
-        borderBottom: active ? `2px solid ${t.colorText}` : "2px solid transparent",
-        padding: `0 ${t.spaceXs}`,
-        lineHeight: "46px",
-      }}
-    >
-      {children}
-    </button>
-  );
-}
+const NAV_TABS = [
+  { key: "notes", label: "Notes" },
+  { key: "reminders", label: "Reminders" },
+] as const;
 
 // ---------------------------------------------------------------------------
 // App
@@ -49,6 +24,11 @@ export function App(): React.JSX.Element {
   const eventCtx = useMemo(() => ({ subscribeEvents, connected }), [subscribeEvents, connected]);
 
   const page = path.startsWith("/reminders") ? "reminders" : "notes";
+
+  const handleTabChange = useCallback((key: string | null) => {
+    if (key === "reminders") navigate("/reminders");
+    else navigate("/");
+  }, [navigate]);
 
   return (
     <EventSubscriptionContext.Provider value={eventCtx}>
@@ -64,20 +44,25 @@ export function App(): React.JSX.Element {
         fontFamily: t.fontSans,
       }}>
         {/* Top bar */}
-        <header style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          height: 48,
-          padding: `0 ${t.spaceLg}`,
-          background: t.colorSurface,
-          borderBottom: `1px solid ${t.colorBorder}`,
-          flexShrink: 0,
-        }}>
-          <nav style={{ display: "flex", gap: t.spaceMd }}>
-            <NavLink active={page === "notes"} onClick={() => navigate("/")}>Notes</NavLink>
-            <NavLink active={page === "reminders"} onClick={() => navigate("/reminders")}>Reminders</NavLink>
-          </nav>
+        <Surface
+          level="panel"
+          radius="none"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            height: 48,
+            padding: `0 ${t.spaceLg}`,
+            borderBottom: `1px solid ${t.colorBorder}`,
+            flexShrink: 0,
+          }}
+        >
+          <TabStrip
+            tabs={NAV_TABS as unknown as { key: string; label: string }[]}
+            activeKey={page}
+            onChange={handleTabChange}
+            size="sm"
+          />
           <div style={{ display: "flex", alignItems: "center", gap: t.spaceSm }}>
             <StatusDot
               status={connected ? "connected" : "disconnected"}
@@ -86,14 +71,12 @@ export function App(): React.JSX.Element {
             />
             <ThemePicker variant="compact" />
           </div>
-        </header>
+        </Surface>
 
-        {/* Page content */}
+        {/* Page content — Surface provides the page background */}
         <main style={{ flex: 1, overflowY: "auto", minHeight: 0, background: t.colorSurfacePage }}>
           {page === "reminders" ? <ReminderDashboardPage /> : <NoteListPage />}
         </main>
-
-
       </div>
     </EventSubscriptionContext.Provider>
   );

@@ -4,6 +4,9 @@ import { screen, fireEvent, waitFor } from "@testing-library/react";
 import { renderWithProviders, makeReminderSummary } from "../test/render-helpers";
 import { ReminderDashboardPage } from "./ReminderDashboardPage";
 
+// jsdom doesn't implement scrollIntoView — stub it for Select component
+Element.prototype.scrollIntoView = vi.fn();
+
 // ---------------------------------------------------------------------------
 // Mock hooks and api
 // ---------------------------------------------------------------------------
@@ -96,14 +99,18 @@ describe("ReminderDashboardPage", () => {
   // -------------------------------------------------------------------------
 
   describe("rendering", () => {
-    it("renders page title 'Reminders'", () => {
+    it("renders '+ New Reminder' button", () => {
       setupHook();
       renderWithProviders(<ReminderDashboardPage />);
-      expect(screen.getByText("Reminders")).toBeInTheDocument();
+      expect(screen.getByText("+ New Reminder")).toBeInTheDocument();
     });
 
-    it("renders This Week and Next Week section headings", () => {
-      setupHook();
+    it("renders This Week and Next Week when they have reminders", () => {
+      const reminders = [makeReminderSummary({ id: "r1", context_preview: "test" })];
+      setupHook({
+        thisWeek: { reminders, total: 1 },
+        nextWeek: { reminders, total: 1 },
+      });
       renderWithProviders(<ReminderDashboardPage />);
       expect(screen.getByText("This Week")).toBeInTheDocument();
       expect(screen.getByText("Next Week")).toBeInTheDocument();
@@ -153,11 +160,13 @@ describe("ReminderDashboardPage", () => {
   // -------------------------------------------------------------------------
 
   describe("empty state", () => {
-    it("shows empty state messages when no reminders", () => {
+    it("shows today empty message and hides empty This/Next Week", () => {
       setupHook();
       renderWithProviders(<ReminderDashboardPage />);
-      expect(screen.getByText("No reminders this week.")).toBeInTheDocument();
-      expect(screen.getByText("No reminders next week.")).toBeInTheDocument();
+      expect(screen.getByText(/Nothing due today/)).toBeInTheDocument();
+      // Empty sections are collapsed
+      expect(screen.queryByText("This Week")).not.toBeInTheDocument();
+      expect(screen.queryByText("Next Week")).not.toBeInTheDocument();
     });
   });
 
@@ -250,9 +259,9 @@ describe("ReminderDashboardPage", () => {
       );
       fireEvent.click(dayButtons[0]);
 
-      // Select recurrence via native <select>
-      const recurrenceSelect = screen.getByDisplayValue("No recurrence");
-      fireEvent.change(recurrenceSelect, { target: { value: "weekly" } });
+      // Select recurrence via custom Select component
+      fireEvent.click(screen.getByRole("combobox", { expanded: false }));
+      fireEvent.click(screen.getByRole("option", { name: "Weekly" }));
 
       fireEvent.click(screen.getByText("Create"));
 
@@ -315,7 +324,7 @@ describe("ReminderDashboardPage", () => {
       setupHook({ dormant: { reminders: dormantReminders, total: 1 } });
       renderWithProviders(<ReminderDashboardPage />);
 
-      fireEvent.click(screen.getByText(/Dormant Reminders/));
+      fireEvent.click(screen.getByText(/Dormant/));
       fireEvent.click(screen.getByText("Old reminder"));
 
       expect(screen.getByText("Dormant Reminder")).toBeInTheDocument();
@@ -335,7 +344,7 @@ describe("ReminderDashboardPage", () => {
       setupHook({ dormant: { reminders: dormantReminders, total: 1 } });
       renderWithProviders(<ReminderDashboardPage />);
 
-      fireEvent.click(screen.getByText(/Dormant Reminders/));
+      fireEvent.click(screen.getByText(/Dormant/));
 
       expect(screen.getByText("Old reminder")).toBeInTheDocument();
     });

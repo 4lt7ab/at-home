@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
-import { semantic as t } from "@4lt7ab/ui/core";
+import { semantic as t, staggerStyle } from "@4lt7ab/ui/core";
 import {
-  Button, IconButton, Stack, Skeleton, EmptyState,
+  Button, IconButton, Card, Stack, Skeleton, EmptyState, Surface,
   Input, Textarea, ModalShell, ConfirmDialog, Field,
-  PageHeader, SearchInput, Badge,
+  SearchInput,
 } from "@4lt7ab/ui/ui";
 import { Markdown } from "@4lt7ab/ui/content";
 import type { Note, NoteSummary } from "@domain/entities";
@@ -15,31 +15,31 @@ import { formatRelativeTime } from "../utils";
 // NoteListItem
 // ---------------------------------------------------------------------------
 
-function NoteListItem({ note, selected, onClick }: {
+function NoteListItem({ note, selected, onClick, index }: {
   note: NoteSummary;
   selected: boolean;
   onClick: () => void;
+  index: number;
 }): React.JSX.Element {
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e) => { if (e.key === "Enter") onClick(); }}
       style={{
-        display: "block",
-        width: "100%",
-        textAlign: "left",
-        background: selected ? t.colorSurfaceRaised : "transparent",
-        border: "none",
-        borderLeft: selected ? `3px solid ${t.colorActionPrimary}` : "3px solid transparent",
-        padding: `${t.spaceSm} ${t.spaceMd}`,
+        ...staggerStyle(index),
         cursor: "pointer",
-        borderRadius: t.radiusSm,
-        transition: "background 100ms ease",
+        borderRadius: t.radiusMd,
+        padding: `${t.spaceSm} ${t.spaceMd}`,
+        background: selected ? t.colorSurfaceRaised : "transparent",
+        borderLeft: selected ? `${t.borderWidthAccent} solid ${t.colorActionPrimary}` : `${t.borderWidthAccent} solid transparent`,
+        transition: `background ${t.transitionBase}, border-color ${t.transitionBase}`,
       }}
     >
       <div style={{
         fontSize: t.fontSizeSm,
-        fontWeight: selected ? 600 : 500,
+        fontWeight: selected ? t.fontWeightSemibold : t.fontWeightMedium,
         color: t.colorText,
         whiteSpace: "nowrap",
         overflow: "hidden",
@@ -67,7 +67,7 @@ function NoteListItem({ note, selected, onClick }: {
           }} />
         )}
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -82,56 +82,59 @@ function NoteDetailPanel({ note, onEdit, onDelete }: {
 }): React.JSX.Element {
   return (
     <div style={{ padding: `${t.spaceXl} ${t.spaceLg}`, maxWidth: 720 }}>
-      {/* Header */}
-      <div style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "flex-start",
-        marginBottom: t.spaceLg,
-        gap: t.spaceMd,
-      }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h1 style={{
-            fontSize: t.fontSize2xl,
-            fontWeight: 700,
-            fontFamily: t.fontSerif,
-            color: t.colorText,
-            margin: 0,
-            lineHeight: t.lineHeightTight,
-          }}>
-            {note.title}
-          </h1>
-          <div style={{
-            fontSize: t.fontSizeXs,
-            color: t.colorTextMuted,
-            marginTop: t.spaceXs,
-          }}>
-            {new Date(note.created_at).toLocaleDateString(undefined, {
-              weekday: "long", year: "numeric", month: "long", day: "numeric",
-            })}
-            {note.updated_at !== note.created_at && (
-              <> · edited {formatRelativeTime(note.updated_at)}</>
-            )}
+      <Surface level="solid" padding="lg" border radius="lg" style={{ ...staggerStyle(0, { duration: 0.25 }) }}>
+        {/* Header */}
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          marginBottom: t.spaceLg,
+          gap: t.spaceMd,
+        }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={{
+              fontSize: t.fontSize2xl,
+              fontWeight: t.fontWeightBold,
+              fontFamily: t.fontSerif,
+              color: t.colorText,
+              margin: 0,
+              lineHeight: t.lineHeightTight,
+            }}>
+              {note.title}
+            </h1>
+            <div style={{
+              fontSize: t.fontSizeXs,
+              color: t.colorTextMuted,
+              marginTop: t.spaceXs,
+            }}>
+              {new Date(note.created_at).toLocaleDateString(undefined, {
+                weekday: "long", year: "numeric", month: "long", day: "numeric",
+              })}
+              {note.updated_at !== note.created_at && (
+                <> · edited {formatRelativeTime(note.updated_at)}</>
+              )}
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: t.spaceXs, flexShrink: 0 }}>
+            <IconButton icon="edit" size={18} aria-label="Edit note" onClick={onEdit} />
+            <IconButton icon="trash" size={18} aria-label="Delete note" onClick={onDelete} />
           </div>
         </div>
-        <div style={{ display: "flex", gap: t.spaceXs, flexShrink: 0 }}>
-          <IconButton icon="edit" size={18} aria-label="Edit note" onClick={onEdit} />
-          <IconButton icon="trash" size={18} aria-label="Delete note" onClick={onDelete} />
-        </div>
-      </div>
 
-      {/* Body */}
-      {note.context ? (
-        <Markdown>{note.context}</Markdown>
-      ) : (
-        <p style={{
-          color: t.colorTextMuted,
-          fontStyle: "italic",
-          fontSize: t.fontSizeSm,
-        }}>
-          This note has no content yet. Click edit to add some.
-        </p>
-      )}
+        {/* Body */}
+        {note.context ? (
+          <Markdown>{note.context}</Markdown>
+        ) : (
+          <p style={{
+            color: t.colorTextMuted,
+            fontStyle: "italic",
+            fontSize: t.fontSizeSm,
+            margin: 0,
+          }}>
+            This note has no content yet. Click edit to add some.
+          </p>
+        )}
+      </Surface>
     </div>
   );
 }
@@ -169,9 +172,9 @@ function CreateNoteOverlay({ onClose, onCreated }: {
   }
 
   return (
-    <ModalShell onClose={onClose} maxWidth={560}>
+    <ModalShell onClose={onClose} maxWidth={560} style={{ background: t.colorSurfaceSolid }}>
       <form onSubmit={handleSubmit}>
-        <h3 style={{ fontSize: t.fontSizeLg, fontWeight: 600, marginBottom: t.spaceLg }}>New Note</h3>
+        <h3 style={{ fontSize: t.fontSizeLg, fontWeight: t.fontWeightSemibold, marginBottom: t.spaceLg }}>New Note</h3>
         <Stack gap="sm">
           <Field label="Title" htmlFor="note-title" required>
             <Input id="note-title" placeholder="Note title" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
@@ -225,9 +228,9 @@ function EditNoteOverlay({ note, onClose, onSaved }: {
   }
 
   return (
-    <ModalShell onClose={onClose} maxWidth={560}>
+    <ModalShell onClose={onClose} maxWidth={560} style={{ background: t.colorSurfaceSolid }}>
       <form onSubmit={handleSubmit}>
-        <h3 style={{ fontSize: t.fontSizeLg, fontWeight: 600, marginBottom: t.spaceLg }}>Edit Note</h3>
+        <h3 style={{ fontSize: t.fontSizeLg, fontWeight: t.fontWeightSemibold, marginBottom: t.spaceLg }}>Edit Note</h3>
         <Stack gap="sm">
           <Field label="Title" htmlFor="edit-title" required>
             <Input id="edit-title" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
@@ -283,12 +286,12 @@ export function NoteListPage(): React.JSX.Element {
       });
   }, []);
 
-  // Auto-select first note when list loads and nothing is selected
+  // Auto-select first note when list loads and nothing is selected (desktop only)
   useEffect(() => {
-    if (!selectedId && notes.length > 0) {
+    if (isDesktop && !selectedId && notes.length > 0) {
       loadNote(notes[0].id);
     }
-  }, [notes, selectedId, loadNote]);
+  }, [notes, selectedId, loadNote, isDesktop]);
 
   // If selected note was deleted, clear selection
   useEffect(() => {
@@ -338,15 +341,19 @@ export function NoteListPage(): React.JSX.Element {
     }}>
       {/* Left panel: note list */}
       {(!showingDetail) && (
-        <div style={{
-          width: isDesktop ? 320 : "100%",
-          minWidth: isDesktop ? 320 : undefined,
-          borderRight: isDesktop ? `1px solid ${t.colorBorder}` : "none",
-          display: "flex",
-          flexDirection: "column",
-          height: "100%",
-          overflow: "hidden",
-        }}>
+        <Surface
+          level="panel"
+          radius="none"
+          style={{
+            width: isDesktop ? 320 : "100%",
+            minWidth: isDesktop ? 320 : undefined,
+            borderRight: isDesktop ? `1px solid ${t.colorBorder}` : "none",
+            display: "flex",
+            flexDirection: "column",
+            height: "100%",
+            overflow: "hidden",
+          }}
+        >
           {/* List header */}
           <div style={{ padding: `${t.spaceMd} ${t.spaceMd} 0` }}>
             <div style={{
@@ -358,7 +365,7 @@ export function NoteListPage(): React.JSX.Element {
               <div style={{ display: "flex", alignItems: "baseline", gap: t.spaceXs }}>
                 <h1 style={{
                   fontSize: t.fontSizeLg,
-                  fontWeight: 700,
+                  fontWeight: t.fontWeightBold,
                   margin: 0,
                   color: t.colorText,
                 }}>
@@ -373,11 +380,10 @@ export function NoteListPage(): React.JSX.Element {
               <IconButton
                 icon="plus"
                 size={18}
+                buttonSize="sm"
                 aria-label="New note"
                 onClick={() => setShowCreate(true)}
                 style={{
-                  width: 28,
-                  height: 28,
                   border: `1px solid ${t.colorBorder}`,
                   color: t.colorText,
                 }}
@@ -395,7 +401,7 @@ export function NoteListPage(): React.JSX.Element {
           <div style={{
             flex: 1,
             overflowY: "auto",
-            padding: `${t.spaceSm} ${t.spaceXs}`,
+            padding: `${t.spaceSm} ${t.spaceSm}`,
           }}>
             {error && (
               <div style={{ color: t.colorError, fontSize: t.fontSizeSm, padding: t.spaceMd }}>{error}</div>
@@ -411,32 +417,27 @@ export function NoteListPage(): React.JSX.Element {
 
             {!loading && notes.length === 0 && (
               <EmptyState
-                icon="search"
-                message={search ? "No notes match your search" : "No notes yet"}
+                icon="edit"
+                message={search ? "No notes match your search" : "No notes yet — write your first one"}
                 action={!search ? (
                   <Button variant="primary" size="sm" onClick={() => setShowCreate(true)}>
-                    Create your first note
+                    New note
                   </Button>
                 ) : undefined}
               />
             )}
 
-            {notes.map((note) => (
+            {notes.map((note, i) => (
               <NoteListItem
                 key={note.id}
                 note={note}
+                index={i}
                 selected={note.id === selectedId}
-                onClick={() => {
-                  if (isDesktop) {
-                    loadNote(note.id);
-                  } else {
-                    loadNote(note.id);
-                  }
-                }}
+                onClick={() => loadNote(note.id)}
               />
             ))}
           </div>
-        </div>
+        </Surface>
       )}
 
       {/* Right panel: note detail */}
@@ -471,7 +472,7 @@ export function NoteListPage(): React.JSX.Element {
               color: t.colorTextMuted,
               fontSize: t.fontSizeSm,
             }}>
-              Select a note to read it
+              Select a note to view it
             </div>
           )}
 
@@ -500,15 +501,33 @@ export function NoteListPage(): React.JSX.Element {
           overflowY: "auto",
           height: "100%",
         }}>
-          {/* Mobile back button */}
-          <div style={{
-            padding: `${t.spaceSm} ${t.spaceMd}`,
-            borderBottom: `1px solid ${t.colorBorder}`,
-          }}>
+          {/* Mobile toolbar */}
+          <Surface
+            level="panel"
+            radius="none"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: `${t.spaceSm} ${t.spaceMd}`,
+              borderBottom: `1px solid ${t.colorBorder}`,
+            }}
+          >
             <Button variant="ghost" size="sm" onClick={handleBack}>
               ← Back
             </Button>
-          </div>
+            <IconButton
+              icon="plus"
+              size={18}
+              buttonSize="sm"
+              aria-label="New note"
+              onClick={() => setShowCreate(true)}
+              style={{
+                border: `1px solid ${t.colorBorder}`,
+                color: t.colorText,
+              }}
+            />
+          </Surface>
 
           {loadingDetail && (
             <div style={{ padding: `${t.spaceXl} ${t.spaceLg}` }}>
