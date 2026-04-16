@@ -1,6 +1,6 @@
 {
   "name": "@x4lt7ab/at-home",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "type": "module",
   "bin": {
     "at-home": "./src/index.ts"
