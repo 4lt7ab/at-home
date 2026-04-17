@@ -15,6 +15,7 @@ import { parseArgs, parseCorsOrigins, logListening, type ServerOptions } from ".
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { noteRoutes } from "./routes/notes";
 import { reminderRoutes } from "./routes/reminders";
+import { logRoutes } from "./routes/logs";
 import { createMcpHttpHandler } from "../mcp/server";
 import type { ServerWebSocket } from "bun";
 
@@ -54,6 +55,7 @@ export class Server {
     app.use("/api/*", logger((str) => process.stderr.write(str + "\n")));
     app.route("/api/notes", noteRoutes(ctx.noteService));
     app.route("/api/reminders", reminderRoutes(ctx.reminderService));
+    app.route("/api/logs", logRoutes(ctx.logService, ctx.logEntryService));
     app.get("/api/health", async (c) => {
       let dbOk = false;
       try {
@@ -78,6 +80,9 @@ export class Server {
       noteService: ctx.noteService,
       noteRepo: ctx.noteRepo,
       reminderService: ctx.reminderService,
+      logService: ctx.logService,
+      logEntryService: ctx.logEntryService,
+      logRepo: ctx.logRepo,
     });
     app.all("/mcp", (c) => handleMcp(c.req.raw));
 

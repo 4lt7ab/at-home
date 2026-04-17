@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-at-home -- a notes and reminders app with real-time updates. Bun + Hono backend, React frontend, PostgreSQL database, MCP integration.
+at-home -- a notes, reminders, and logs app with real-time updates. Bun + Hono backend, React frontend, PostgreSQL database, MCP integration.
+
+**Reminders vs Logs — the split is load-bearing.** Reminders are future-looking: they nag until dismissed, support recurrence, and live on a timeline. Logs are past-facts only: timestamped records of things that happened, no intervals, no recurrence, no nagging. The two features never share logic. If a requirement looks like it straddles both, it belongs in one or the other — pick.
 
 ## Development
 
@@ -33,8 +35,8 @@ Tests live at three layers:
 
 | Layer | Location | Runner | Covers |
 |-------|----------|--------|--------|
-| Domain | `tests/domain.test.ts`, `tests/reminders-domain.test.ts` | bun:test | NoteService and ReminderService CRUD, validation, pagination |
-| API | `tests/api.test.ts`, `tests/reminders-api.test.ts` | bun:test | Every HTTP endpoint, error responses |
+| Domain | `tests/domain.test.ts`, `tests/reminders-domain.test.ts`, `tests/logs-domain.test.ts` | bun:test | NoteService, ReminderService, LogService, LogEntryService — CRUD, validation, pagination, projections, cascade delete |
+| API | `tests/api.test.ts`, `tests/reminders-api.test.ts`, `tests/logs-api.test.ts` | bun:test | Every HTTP endpoint, error responses |
 | Web | `src/web/src/**/*.test.{ts,tsx}` | Vitest + jsdom | Hooks, components, routing, API client |
 
 **Rules for contributors**:
@@ -49,24 +51,33 @@ Clean architecture with three transport layers sharing a common domain:
 
 ```
 Web UI (React/Vite)  -+         NoteService     -> NoteRepository     -+
-HTTP API (Hono)       -+---> {                                          }-> PostgreSQL
-MCP Server            -+         ReminderService -> ReminderRepository -+
+HTTP API (Hono)       -+---> {  ReminderService -> ReminderRepository   }-> PostgreSQL
+MCP Server            -+        LogService      -> LogRepository       -+
+                                 LogEntryService -> LogEntryRepository  |
                                       |
                                 EventBus -> WebSocket broadcast
 ```
 
-**Domain layer** (`src/domain/`): Note and Reminder entities, NoteService, ReminderService, NoteRepository, ReminderRepository, EventBus. All business logic lives here. Services are wired through `AppContext` (DI container in `bootstrap.ts`).
+**Domain layer** (`src/domain/`): Note, Reminder, Log, and LogEntry entities with matching services and repositories. All business logic lives here. Services are wired through `AppContext` (DI container in `bootstrap.ts`). Naming is strict: code and UI both use `Log` (the definition) and `LogEntry` (one instance). No "Event" naming — that's already taken by `DomainEvent` on the EventBus.
 
-**Server layer** (`src/server/`): Hono routes under `/api/notes` and `/api/reminders`, health check at `/api/health`, WebSocket at `/ws`, MCP at `/mcp`. Serves built web assets in production with SPA fallback.
+- `Log`: a named definition (`name`, `description`). LogSummary adds `last_logged_at` and `entry_count` projections computed on read.
+- `LogEntry`: one occurrence with `log_id`, `occurred_at` (backdatable), optional `note`, freeform JSONB `metadata`. Cascade-deletes with its parent Log.
 
-**Web layer** (`src/web/`): React 19 SPA with NoteListPage and ReminderDashboardPage. Hooks encapsulate data fetching and business logic. Real-time updates via WebSocket subscription to domain events.
+**Server layer** (`src/server/`): Hono routes under `/api/notes`, `/api/reminders`, `/api/logs` (entries fully nested under `/api/logs/:log_id/entries` — batch POST/PATCH/DELETE on the collection URL, single-entry GET/PATCH/DELETE on `/api/logs/:log_id/entries/:entry_id`; any entry whose parent log doesn't match `:log_id` returns 404), health check at `/api/health`, WebSocket at `/ws`, MCP at `/mcp`. Serves built web assets in production with SPA fallback.
 
-**MCP layer** (`src/mcp/`): 11 Model Context Protocol tools for AI client integration -- 5 note tools (list, get, create, update, delete) and 6 reminder tools (list, get, create, update, delete, dismiss). Tool schemas defined with Zod, handlers delegate to NoteService and ReminderService.
+**Web layer** (`src/web/`): React 19 SPA with NoteListPage, ReminderDashboardPage, and LogsPage. Hooks encapsulate data fetching and business logic. Real-time updates via WebSocket subscription to domain events — `useLogs` subscribes to both `log` and `log_entry` so projections stay fresh.
+
+**MCP layer** (`src/mcp/`): 22 Model Context Protocol tools for AI client integration --
+- 5 note tools: list, get, create, update, delete
+- 6 reminder tools: list, get, create, update, delete, dismiss
+- 11 log tools: list_logs, get_log, create_log, update_log, delete_logs, list_log_entries, get_log_entry, create_log_entry, update_log_entry, delete_log_entries, and `log_entry` — the convenience verb that resolves `log_name` via case-insensitive exact match then ILIKE, defaults occurred_at to now, and returns a helpful "Candidates: …" error on ambiguous matches.
+Tool schemas defined with Zod, handlers delegate to the services.
 
 ### Key Patterns
 
-- **Dependency injection**: `AppContext` in `bootstrap.ts` creates and wires the NoteRepository, ReminderRepository, NoteService, ReminderService, and EventBus
-- **Domain events**: `EventBus` pub-sub for real-time WebSocket broadcast on note changes
+- **Dependency injection**: `AppContext` in `bootstrap.ts` creates and wires every repository and service (Note, Reminder, Log, LogEntry) plus the EventBus
+- **Domain events**: `EventBus` pub-sub for real-time WebSocket broadcast on mutations. `entity_type` is one of `note | reminder | log | log_entry`
+- **Projections computed on read**: `LogSummary.last_logged_at` and `entry_count` are computed by `LogRepository.projectionsForIds` at list time — no denormalized counters to keep in sync
 - **Async throughout**: All repo and service methods are async (returns `Promise<T>`). The `postgres` library uses tagged template queries.
 - **Vite alias**: `@domain` maps to `../domain` so frontend can import domain types
 
@@ -99,7 +110,7 @@ Migrations in `src/domain/db/migrations/` run automatically on startup.
 
 **Keep this script up to date.** When you add entities or UI features, add corresponding seed data so `bun run seed` always produces a database that exercises every view.
 
-Current coverage: notes (with/without context), reminders in every state (overdue, this week, next week, dormant) and every recurrence cadence (daily, weekly, monthly, yearly, one-shot).
+Current coverage: notes (with/without context), reminders in every state (overdue, this week, next week, dormant) and every recurrence cadence (daily, weekly, monthly, yearly, one-shot), and logs with every render case — empty (no entries yet), frequent entries, sparse history, entries with notes, entries with metadata, and long-note entries.
 
 ## Versioning
 

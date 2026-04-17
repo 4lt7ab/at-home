@@ -3,6 +3,8 @@ export { useEventSubscription, useEventFanOut, useEntitySubscription, EventSubsc
 export type { SubscribeEvents, EventSubscriptionContextValue } from "./useEventSubscription";
 export { useNotes } from "./useNotes";
 export { useReminders } from "./useReminders";
+export { useLogs } from "./useLogs";
+export { useLogEntries } from "./useLogEntries";
 export { useViewMode } from "./useViewMode";
 export type { ViewMode } from "./useViewMode";
 export { useHotkey } from "./useHotkey";

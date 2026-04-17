@@ -12,6 +12,7 @@
  *   - Notes: various titles and contexts, some with no context
  *   - Reminders: overdue, this week, next week, recurring (all cadences),
  *     one-shot, and dormant
+ *   - Logs: empty, frequent entries, sparse, with metadata, with long notes
  */
 
 import { bootstrap } from "../src/domain/bootstrap";
@@ -98,6 +99,11 @@ async function seed(): Promise<void> {
   if (existingReminders.data.length > 0) {
     await ctx.reminderService.remove(existingReminders.data.map((r) => r.id));
   }
+  const existingLogs = await ctx.logService.list({ limit: 1000 });
+  if (existingLogs.data.length > 0) {
+    await ctx.logService.remove(existingLogs.data.map((l) => l.id));
+    // cascade wipes log_entries
+  }
 
   // Seed notes
   console.log(`Creating ${notes.length} notes…`);
@@ -119,10 +125,63 @@ async function seed(): Promise<void> {
     await ctx.reminderService.dismiss({ id: r.id });
   }
 
+  // Seed logs
+  console.log("Creating logs…");
+  const now = Date.now();
+  const daysAgo = (n: number): string => new Date(now - n * 86400_000).toISOString();
+  const hoursAgo = (n: number): string => new Date(now - n * 3600_000).toISOString();
+
+  const [plantWatering, trashOut, catUp, calledMom, rareLog] = await ctx.logService.create([
+    { name: "Plant watering", description: "Water all the houseplants" },
+    { name: "Trash out", description: "Takes roughly a week to fill" },
+    { name: "Cat threw up", description: "Tracking frequency and suspected triggers" },
+    { name: "Called mom", description: null },
+    { name: "Smoke detector tested", description: "Annual battery check — not yet logged" },
+  ]);
+
+  // Plant watering — frequent entries, every ~3 days
+  await ctx.logEntryService.create(
+    [0, 3, 6, 9, 12, 15, 18].map((d) => ({
+      log_id: plantWatering.id,
+      occurred_at: hoursAgo(d * 24 + 2),
+    })),
+  );
+
+  // Trash out — weekly-ish, last few weeks
+  await ctx.logEntryService.create(
+    [0, 7, 14, 21].map((d) => ({
+      log_id: trashOut.id,
+      occurred_at: daysAgo(d),
+    })),
+  );
+
+  // Cat threw up — sporadic, with notes
+  await ctx.logEntryService.create([
+    { log_id: catUp.id, occurred_at: daysAgo(2), note: "Right after breakfast. Hairball — no food." },
+    { log_id: catUp.id, occurred_at: daysAgo(11), note: "Ate too fast again. Considering a slow-feeder bowl." },
+    {
+      log_id: catUp.id,
+      occurred_at: daysAgo(34),
+      note: "Long note: noticed it happened about 30 minutes after switching bowls. The old ceramic one sits higher — the new stainless bowl is flush to the floor and I think she's gulping air. Worth experimenting with raising the new bowl on a wooden riser to see if that matters. Also: stool was normal afterward, energy normal, appetite normal. Watching for patterns; will log next occurrence.",
+    },
+  ]);
+
+  // Called mom — occasional, with metadata
+  await ctx.logEntryService.create([
+    { log_id: calledMom.id, occurred_at: daysAgo(4), note: "Good catch-up call.", metadata: { duration_min: 42, topic: "weekend plans" } },
+    { log_id: calledMom.id, occurred_at: daysAgo(13), metadata: { duration_min: 18 } },
+    { log_id: calledMom.id, occurred_at: daysAgo(27), note: "Talked about dad's surgery.", metadata: { duration_min: 73, topic: "dad recovery" } },
+  ]);
+
+  // rareLog → intentionally no entries (exercises the "Never logged" / empty state).
+  void rareLog;
+
   // Summary
   const noteCount = (await ctx.noteService.list({ limit: 1 })).total;
   const reminderCount = (await ctx.reminderService.list({ limit: 1 })).total;
-  console.log(`\nSeeded: ${noteCount} notes, ${reminderCount} reminders`);
+  const logCount = (await ctx.logService.list({ limit: 1 })).total;
+  const entryCount = (await ctx.logEntryService.list({ limit: 1 })).total;
+  console.log(`\nSeeded: ${noteCount} notes, ${reminderCount} reminders, ${logCount} logs with ${entryCount} entries`);
   console.log("  Overdue:    %d", reminders.overdue.length);
   console.log("  This week:  %d", reminders.thisWeek.length);
   console.log("  Next week:  %d", reminders.nextWeek.length);

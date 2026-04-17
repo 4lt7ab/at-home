@@ -1,6 +1,18 @@
-import type { Note, NoteSummary, Reminder, ReminderSummary } from "./entities";
-import type { CreateNoteInput, UpdateNoteInput, CreateReminderInput, UpdateReminderInput, DismissReminderInput } from "./inputs";
+import type { Note, NoteSummary, Reminder, ReminderSummary, Log, LogSummary, LogEntry, LogEntrySummary } from "./entities";
+import type {
+  CreateNoteInput,
+  UpdateNoteInput,
+  CreateReminderInput,
+  UpdateReminderInput,
+  DismissReminderInput,
+  CreateLogInput,
+  UpdateLogInput,
+  CreateLogEntryInput,
+  UpdateLogEntryInput,
+} from "./inputs";
 import type { ReminderFilter } from "./repositories/reminders";
+import type { LogFilter } from "./repositories/logs";
+import type { LogEntryFilter } from "./repositories/log-entries";
 
 export interface Paginated<T> {
   data: T[];
@@ -22,4 +34,20 @@ export interface IReminderService {
   update(inputs: UpdateReminderInput[]): Promise<Reminder[]>;
   remove(ids: string[]): Promise<number>;
   dismiss(input: DismissReminderInput): Promise<Reminder>;
+}
+
+export interface ILogService {
+  list(filter?: LogFilter): Promise<Paginated<LogSummary>>;
+  get(id: string): Promise<Log>;
+  create(inputs: CreateLogInput[]): Promise<Log[]>;
+  update(inputs: UpdateLogInput[]): Promise<Log[]>;
+  remove(ids: string[]): Promise<number>;
+}
+
+export interface ILogEntryService {
+  list(filter?: LogEntryFilter): Promise<Paginated<LogEntrySummary>>;
+  get(id: string): Promise<LogEntry>;
+  create(inputs: CreateLogEntryInput[]): Promise<LogEntry[]>;
+  update(inputs: UpdateLogEntryInput[]): Promise<LogEntry[]>;
+  remove(ids: string[]): Promise<number>;
 }

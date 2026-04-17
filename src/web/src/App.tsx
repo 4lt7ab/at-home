@@ -6,10 +6,12 @@ import { useRealtimeEvents } from "./useRealtimeEvents";
 import { useEventFanOut, useHashRoute, EventSubscriptionContext } from "./hooks";
 import { NoteListPage } from "./pages/NoteListPage";
 import { ReminderDashboardPage } from "./pages/ReminderDashboardPage";
+import { LogsPage } from "./pages/LogsPage";
 
 const NAV_TABS = [
   { key: "notes", label: "Notes" },
   { key: "reminders", label: "Reminders" },
+  { key: "logs", label: "Logs" },
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -23,10 +25,13 @@ export function App(): React.JSX.Element {
 
   const eventCtx = useMemo(() => ({ subscribeEvents, connected }), [subscribeEvents, connected]);
 
-  const page = path.startsWith("/reminders") ? "reminders" : "notes";
+  const page = path.startsWith("/reminders") ? "reminders"
+    : path.startsWith("/logs") ? "logs"
+    : "notes";
 
   const handleTabChange = useCallback((key: string | null) => {
     if (key === "reminders") navigate("/reminders");
+    else if (key === "logs") navigate("/logs");
     else navigate("/");
   }, [navigate]);
 
@@ -71,7 +76,9 @@ export function App(): React.JSX.Element {
 
         {/* Page content — Surface provides the page background */}
         <main style={{ flex: 1, overflowY: "auto", minHeight: 0, background: t.colorSurfacePage }}>
-          {page === "reminders" ? <ReminderDashboardPage /> : <NoteListPage />}
+          {page === "reminders" ? <ReminderDashboardPage />
+            : page === "logs" ? <LogsPage />
+            : <NoteListPage />}
         </main>
       </div>
     </EventSubscriptionContext.Provider>

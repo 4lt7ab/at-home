@@ -5,7 +5,7 @@ import type { ReactElement, ReactNode } from "react";
 import { ThemeProvider } from "@4lt7ab/ui/core";
 import { EventSubscriptionContext } from "../hooks/useEventSubscription";
 import type { EventSubscriptionContextValue } from "../hooks/useEventSubscription";
-import type { NoteSummary, ReminderSummary } from "@domain/entities";
+import type { NoteSummary, ReminderSummary, LogSummary, LogEntrySummary } from "@domain/entities";
 
 // ---------------------------------------------------------------------------
 // Default mock context values
@@ -92,6 +92,35 @@ export function makeReminderSummary(
     recurrence: null,
     dismissed_at: null,
     is_active: true,
+    created_at: NOW,
+    updated_at: NOW,
+    ...overrides,
+  };
+}
+
+export function makeLogSummary(overrides: Partial<LogSummary> = {}): LogSummary {
+  const id = overrides.id ?? nextId();
+  return {
+    id,
+    name: `Log ${id}`,
+    description: null,
+    last_logged_at: null,
+    entry_count: 0,
+    created_at: NOW,
+    updated_at: NOW,
+    ...overrides,
+  };
+}
+
+export function makeLogEntrySummary(overrides: Partial<LogEntrySummary> = {}): LogEntrySummary {
+  const id = overrides.id ?? nextId();
+  return {
+    id,
+    log_id: "log-test",
+    occurred_at: NOW,
+    note: null,
+    note_preview: null,
+    has_metadata: false,
     created_at: NOW,
     updated_at: NOW,
     ...overrides,

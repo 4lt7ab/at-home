@@ -11,4 +11,8 @@ export { NoteRepository, type NoteFilter } from "./repositories/notes";
 export { NoteService } from "./services/notes";
 export { ReminderRepository, type ReminderFilter } from "./repositories/reminders";
 export { ReminderService } from "./services/reminders";
+export { LogRepository, type LogFilter } from "./repositories/logs";
+export { LogEntryRepository, type LogEntryFilter } from "./repositories/log-entries";
+export { LogService } from "./services/logs";
+export { LogEntryService } from "./services/log-entries";
 export { parseArgs, parseCorsOrigins, logListening, getNetworkAddress, type ServerOptions } from "./args";

@@ -54,6 +54,77 @@ export function toNoteSummary(n: Note): NoteSummary {
   };
 }
 
+// -- Log entities -----------------------------------------------------------
+
+export interface Log {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LogEntry {
+  id: string;
+  log_id: string;
+  occurred_at: string;
+  note: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LogSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  last_logged_at: string | null;
+  entry_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LogEntrySummary {
+  id: string;
+  log_id: string;
+  occurred_at: string;
+  note: string | null;
+  note_preview: string | null;
+  has_metadata: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export function toLogSummary(
+  l: Log,
+  projections: { last_logged_at: string | null; entry_count: number },
+): LogSummary {
+  return {
+    id: l.id,
+    name: l.name,
+    description: l.description,
+    last_logged_at: projections.last_logged_at,
+    entry_count: projections.entry_count,
+    created_at: l.created_at,
+    updated_at: l.updated_at,
+  };
+}
+
+export function toLogEntrySummary(e: LogEntry): LogEntrySummary {
+  return {
+    id: e.id,
+    log_id: e.log_id,
+    occurred_at: e.occurred_at,
+    note: e.note,
+    note_preview: e.note == null
+      ? null
+      : (e.note.length > 100 ? e.note.slice(0, 100) + "…" : e.note),
+    has_metadata: e.metadata != null && Object.keys(e.metadata).length > 0,
+    created_at: e.created_at,
+    updated_at: e.updated_at,
+  };
+}
+
 export function toReminderSummary(r: Reminder): ReminderSummary {
   const isActive = r.dismissed_at == null || r.dismissed_at < r.remind_at;
   return {

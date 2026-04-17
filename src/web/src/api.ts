@@ -1,4 +1,13 @@
-import type { Note, NoteSummary, Reminder, ReminderSummary } from "@domain/entities";
+import type {
+  Note,
+  NoteSummary,
+  Reminder,
+  ReminderSummary,
+  Log,
+  LogSummary,
+  LogEntry,
+  LogEntrySummary,
+} from "@domain/entities";
 
 // ---------------------------------------------------------------------------
 // ApiError
@@ -136,4 +145,106 @@ export async function dismissReminders(items: Array<{
 }>): Promise<Reminder[]> {
   const res = await apiFetch("/api/reminders/dismiss", jsonPost({ items }));
   return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Logs API
+// ---------------------------------------------------------------------------
+
+export async function fetchLogs(params?: {
+  name?: string; limit?: number; offset?: number;
+}): Promise<{ data: LogSummary[]; total: number }> {
+  const res = await apiFetch(`/api/logs${qs(params)}`);
+  return res.json();
+}
+
+export async function fetchLog(id: string): Promise<Log> {
+  const res = await apiFetch(`/api/logs/${encodeURIComponent(id)}`);
+  return res.json();
+}
+
+export async function createLogs(items: Array<{
+  name: string; description?: string | null;
+}>): Promise<Log[]> {
+  const res = await apiFetch("/api/logs", jsonPost({ items }));
+  const body = await res.json();
+  return body.data;
+}
+
+export async function updateLogs(items: Array<{
+  id: string; name?: string; description?: string | null;
+}>): Promise<Log[]> {
+  const res = await apiFetch("/api/logs", jsonPatch({ items }));
+  const body = await res.json();
+  return body.data;
+}
+
+export async function deleteLogs(ids: string[]): Promise<void> {
+  await apiFetch("/api/logs", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) });
+}
+
+export async function fetchLogEntries(logId: string, params?: {
+  occurred_at_from?: string; occurred_at_to?: string; limit?: number; offset?: number;
+}): Promise<{ data: LogEntrySummary[]; total: number }> {
+  const res = await apiFetch(`/api/logs/${encodeURIComponent(logId)}/entries${qs(params)}`);
+  return res.json();
+}
+
+export async function fetchLogEntry(logId: string, entryId: string): Promise<LogEntry> {
+  const res = await apiFetch(`/api/logs/${encodeURIComponent(logId)}/entries/${encodeURIComponent(entryId)}`);
+  return res.json();
+}
+
+/** One-tap quick-log helper. Body-less call defaults occurred_at to now on the server. */
+export async function createLogEntry(logId: string, input?: {
+  occurred_at?: string; note?: string | null; metadata?: Record<string, unknown> | null;
+}): Promise<LogEntry> {
+  const res = await apiFetch(`/api/logs/${encodeURIComponent(logId)}/entries`, jsonPost(input ?? {}));
+  const body = await res.json();
+  return body.data[0];
+}
+
+export async function createLogEntries(logId: string, items: Array<{
+  occurred_at?: string; note?: string | null; metadata?: Record<string, unknown> | null;
+}>): Promise<LogEntry[]> {
+  const res = await apiFetch(`/api/logs/${encodeURIComponent(logId)}/entries`, jsonPost({ items }));
+  const body = await res.json();
+  return body.data;
+}
+
+/** Batch update entries scoped to a single log. Every id must belong to `logId` or the whole call 404s. */
+export async function updateLogEntries(logId: string, items: Array<{
+  id: string; occurred_at?: string; note?: string | null; metadata?: Record<string, unknown> | null;
+}>): Promise<LogEntry[]> {
+  const res = await apiFetch(`/api/logs/${encodeURIComponent(logId)}/entries`, jsonPatch({ items }));
+  const body = await res.json();
+  return body.data;
+}
+
+/** Update a single entry — uses the dedicated nested route. */
+export async function updateLogEntry(logId: string, entryId: string, patch: {
+  occurred_at?: string; note?: string | null; metadata?: Record<string, unknown> | null;
+}): Promise<LogEntry> {
+  const res = await apiFetch(
+    `/api/logs/${encodeURIComponent(logId)}/entries/${encodeURIComponent(entryId)}`,
+    jsonPatch(patch),
+  );
+  return res.json();
+}
+
+/** Batch delete entries scoped to a single log. */
+export async function deleteLogEntries(logId: string, ids: string[]): Promise<void> {
+  await apiFetch(`/api/logs/${encodeURIComponent(logId)}/entries`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids }),
+  });
+}
+
+/** Delete a single entry — uses the dedicated nested route, returns 204. */
+export async function deleteLogEntry(logId: string, entryId: string): Promise<void> {
+  await apiFetch(
+    `/api/logs/${encodeURIComponent(logId)}/entries/${encodeURIComponent(entryId)}`,
+    { method: "DELETE" },
+  );
 }
