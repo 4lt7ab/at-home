@@ -8,6 +8,8 @@ at-home -- a notes, reminders, and logs app with real-time updates. Bun + Hono b
 
 **Reminders vs Logs — the split is load-bearing.** Reminders are future-looking: they nag until dismissed, support recurrence, and live on a timeline. Logs are past-facts only: timestamped records of things that happened, no intervals, no recurrence, no nagging. The two features never share logic. If a requirement looks like it straddles both, it belongs in one or the other — pick.
 
+**Reactions — fixed palette, counts never decrement.** Log entries support emoji reactions from a fixed 9-emoji palette: ❤️ 👍 🎉 🔥 ✅ 🤔 🦖 🫠 🪄. Adding a reaction increments its count; there is no un-react, no decrement, no DELETE endpoint. The palette is closed — attempting to add an off-palette emoji returns 400. Reactions are a projection of LogEntry (computed on read), not an independent entity surfaced in the UI outside the context of its parent entry. The palette and `PALETTE_SET` are exported from `src/domain/services/log-entries.ts` as the single source of truth.
+
 ## Development
 
 The dev API runs at `http://localhost:3100`. When doing development work, test against this local server.
@@ -50,10 +52,11 @@ Tests live at three layers:
 Clean architecture with three transport layers sharing a common domain:
 
 ```
-Web UI (React/Vite)  -+         NoteService     -> NoteRepository     -+
-HTTP API (Hono)       -+---> {  ReminderService -> ReminderRepository   }-> PostgreSQL
-MCP Server            -+        LogService      -> LogRepository       -+
-                                 LogEntryService -> LogEntryRepository  |
+Web UI (React/Vite)  -+         NoteService     -> NoteRepository              -+
+HTTP API (Hono)       -+---> {  ReminderService -> ReminderRepository            }-> PostgreSQL
+MCP Server            -+        LogService      -> LogRepository                -+
+                                 LogEntryService -> LogEntryRepository           |
+                                                 -> LogEntryReactionRepository  |
                                       |
                                 EventBus -> WebSocket broadcast
 ```
@@ -61,23 +64,23 @@ MCP Server            -+        LogService      -> LogRepository       -+
 **Domain layer** (`src/domain/`): Note, Reminder, Log, and LogEntry entities with matching services and repositories. All business logic lives here. Services are wired through `AppContext` (DI container in `bootstrap.ts`). Naming is strict: code and UI both use `Log` (the definition) and `LogEntry` (one instance). No "Event" naming — that's already taken by `DomainEvent` on the EventBus.
 
 - `Log`: a named definition (`name`, `description`). LogSummary adds `last_logged_at` and `entry_count` projections computed on read.
-- `LogEntry`: one occurrence with `log_id`, `occurred_at` (backdatable), optional `note`, freeform JSONB `metadata`. Cascade-deletes with its parent Log.
+- `LogEntry`: one occurrence with `log_id`, `occurred_at` (backdatable), optional `note`, freeform JSONB `metadata`. Cascade-deletes with its parent Log. `LogEntrySummary` adds a `reactions: LogEntryReaction[]` projection (one row per emoji with a `count`), computed on read by `LogEntryReactionRepository.projectionsForIds`. Reactions have no standalone entity in the UI — they're only surfaced through their parent entry — and counts are monotonically increasing: `LogEntryService.applyReaction` upserts + increments, never decrements. Rows cascade-delete with the parent entry (which cascades with its parent Log).
 
-**Server layer** (`src/server/`): Hono routes under `/api/notes`, `/api/reminders`, `/api/logs` (entries fully nested under `/api/logs/:log_id/entries` — batch POST/PATCH/DELETE on the collection URL, single-entry GET/PATCH/DELETE on `/api/logs/:log_id/entries/:entry_id`; any entry whose parent log doesn't match `:log_id` returns 404), health check at `/api/health`, WebSocket at `/ws`, MCP at `/mcp`. Serves built web assets in production with SPA fallback.
+**Server layer** (`src/server/`): Hono routes under `/api/notes`, `/api/reminders`, `/api/logs` (entries fully nested under `/api/logs/:log_id/entries` — batch POST/PATCH/DELETE on the collection URL, single-entry GET/PATCH/DELETE on `/api/logs/:log_id/entries/:entry_id`; any entry whose parent log doesn't match `:log_id` returns 404). Reactions are `POST /api/logs/:log_id/entries/:entry_id/reactions` only — no GET, PATCH, or DELETE; the response is the updated `LogEntrySummary` with fresh `reactions`. Health check at `/api/health`, WebSocket at `/ws`, MCP at `/mcp`. Serves built web assets in production with SPA fallback.
 
-**Web layer** (`src/web/`): React 19 SPA with NoteListPage, ReminderDashboardPage, and LogsPage. Hooks encapsulate data fetching and business logic. Real-time updates via WebSocket subscription to domain events — `useLogs` subscribes to both `log` and `log_entry` so projections stay fresh.
+**Web layer** (`src/web/`): React 19 SPA with NoteListPage, ReminderDashboardPage, and LogsPage. Hooks encapsulate data fetching and business logic. Real-time updates via WebSocket subscription to domain events — `useLogs` subscribes to both `log` and `log_entry` so projections stay fresh. The `<ReactionStrip>` component (`src/web/src/components/ReactionStrip.tsx`) renders inline under each log entry on LogsPage, applies reactions optimistically, and reconciles against WebSocket-driven refetches.
 
-**MCP layer** (`src/mcp/`): 22 Model Context Protocol tools for AI client integration --
+**MCP layer** (`src/mcp/`): 23 Model Context Protocol tools for AI client integration --
 - 5 note tools: list, get, create, update, delete
 - 6 reminder tools: list, get, create, update, delete, dismiss
-- 11 log tools: list_logs, get_log, create_log, update_log, delete_logs, list_log_entries, get_log_entry, create_log_entry, update_log_entry, delete_log_entries, and `log_entry` — the convenience verb that resolves `log_name` via case-insensitive exact match then ILIKE, defaults occurred_at to now, and returns a helpful "Candidates: …" error on ambiguous matches.
+- 12 log tools: list_logs, get_log, create_log, update_log, delete_logs, list_log_entries, get_log_entry, create_log_entry, update_log_entry, delete_log_entries, `log_entry` — the convenience verb that resolves `log_name` via case-insensitive exact match then ILIKE, defaults occurred_at to now, and returns a helpful "Candidates: …" error on ambiguous matches — and `add_log_entry_reaction`, which increments the count for a `(log_entry_id, emoji)` pair from the fixed palette.
 Tool schemas defined with Zod, handlers delegate to the services.
 
 ### Key Patterns
 
-- **Dependency injection**: `AppContext` in `bootstrap.ts` creates and wires every repository and service (Note, Reminder, Log, LogEntry) plus the EventBus
-- **Domain events**: `EventBus` pub-sub for real-time WebSocket broadcast on mutations. `entity_type` is one of `note | reminder | log | log_entry`
-- **Projections computed on read**: `LogSummary.last_logged_at` and `entry_count` are computed by `LogRepository.projectionsForIds` at list time — no denormalized counters to keep in sync
+- **Dependency injection**: `AppContext` in `bootstrap.ts` creates and wires every repository and service (Note, Reminder, Log, LogEntry, LogEntryReaction) plus the EventBus
+- **Domain events**: `EventBus` pub-sub for real-time WebSocket broadcast on mutations. `entity_type` is one of `note | reminder | log | log_entry`. Reactions do not get their own entity type — `applyReaction` emits a `log_entry` `updated` event so listeners refetch the parent entry with fresh reactions.
+- **Projections computed on read**: `LogSummary.last_logged_at` and `entry_count` are computed by `LogRepository.projectionsForIds`; `LogEntrySummary.reactions` is computed by `LogEntryReactionRepository.projectionsForIds`. Both at list time — no denormalized counters to keep in sync.
 - **Async throughout**: All repo and service methods are async (returns `Promise<T>`). The `postgres` library uses tagged template queries.
 - **Vite alias**: `@domain` maps to `../domain` so frontend can import domain types
 
@@ -110,7 +113,7 @@ Migrations in `src/domain/db/migrations/` run automatically on startup.
 
 **Keep this script up to date.** When you add entities or UI features, add corresponding seed data so `bun run seed` always produces a database that exercises every view.
 
-Current coverage: notes (with/without context), reminders in every state (overdue, this week, next week, dormant) and every recurrence cadence (daily, weekly, monthly, yearly, one-shot), and logs with every render case — empty (no entries yet), frequent entries, sparse history, entries with notes, entries with metadata, and long-note entries.
+Current coverage: notes (with/without context), reminders in every state (overdue, this week, next week, dormant) and every recurrence cadence (daily, weekly, monthly, yearly, one-shot), and logs with every render case — empty (no entries yet), frequent entries, sparse history, entries with notes, entries with metadata, long-note entries, and entries with reactions (both single-emoji and multi-emoji with varied counts) alongside entries with no reactions.
 
 ## Versioning
 
