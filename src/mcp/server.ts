@@ -390,6 +390,19 @@ export function createMcpServer(ctx: McpServiceContext): McpServer {
     }),
   );
 
+  server.registerTool(
+    "add_log_entry_reaction",
+    {
+      description: "Increment the reaction count for `emoji` on a log entry. Never decrements. Emoji must be in the fixed palette (❤️, 👍, 🎉, 🔥, ✅, 🤔, 🦖, 🫠, 🪄); anything else 400s. Returns the updated reaction row { log_entry_id, emoji, count, timestamps }.",
+      inputSchema: {
+        log_entry_id: z.string().max(26),
+        emoji: z.string(),
+      },
+    },
+    ({ log_entry_id, emoji }) =>
+      handle(() => logEntryService.applyReaction(log_entry_id, emoji)),
+  );
+
   return server;
 }
 
