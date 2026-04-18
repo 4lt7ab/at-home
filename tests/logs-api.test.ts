@@ -2,6 +2,7 @@ import { describe, test, expect, beforeAll, afterAll, beforeEach } from "bun:tes
 import { Hono } from "hono";
 import { bootstrap, type AppContext } from "../src/domain/bootstrap";
 import { ServiceError } from "../src/domain/errors";
+import type { DomainEvent } from "../src/domain/events";
 import { logRoutes } from "../src/server/routes/logs";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
@@ -674,5 +675,154 @@ describe("DELETE /api/logs/:log_id/entries (batch)", () => {
       body: JSON.stringify({}),
     });
     expect(status).toBe(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/logs/:log_id/entries/:entry_id/reactions
+// ---------------------------------------------------------------------------
+describe("POST /api/logs/:log_id/entries/:entry_id/reactions", () => {
+  test("happy path returns updated LogEntrySummary with reactions projection", async () => {
+    const create = await json("/api/logs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: [{ name: "React" }] }),
+    });
+    const logId = create.body.data[0].id;
+    const e = await json(`/api/logs/${logId}/entries`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ note: "hi" }),
+    });
+    const entryId = e.body.data[0].id;
+
+    const first = await json(`/api/logs/${logId}/entries/${entryId}/reactions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emoji: "❤️" }),
+    });
+    expect(first.status).toBe(200);
+    // Returned shape is LogEntrySummary (has reactions projection, note_preview, has_metadata)
+    expect(first.body.id).toBe(entryId);
+    expect(first.body.log_id).toBe(logId);
+    expect(first.body.reactions).toEqual([{ emoji: "❤️", count: 1 }]);
+    expect(first.body).toHaveProperty("note_preview");
+    expect(first.body).toHaveProperty("has_metadata");
+
+    // Second increment bumps the count and is reflected in the returned summary.
+    const second = await json(`/api/logs/${logId}/entries/${entryId}/reactions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emoji: "❤️" }),
+    });
+    expect(second.status).toBe(200);
+    expect(second.body.reactions).toEqual([{ emoji: "❤️", count: 2 }]);
+
+    // A different palette emoji produces a second reaction row.
+    const third = await json(`/api/logs/${logId}/entries/${entryId}/reactions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emoji: "🔥" }),
+    });
+    expect(third.status).toBe(200);
+    const sorted = [...third.body.reactions].sort((a: any, b: any) => a.emoji.localeCompare(b.emoji));
+    expect(sorted).toEqual([
+      { emoji: "❤️", count: 2 },
+      { emoji: "🔥", count: 1 },
+    ]);
+  });
+
+  test("returns 404 when entry's parent log doesn't match :log_id", async () => {
+    const create = await json("/api/logs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: [{ name: "LogA" }, { name: "LogB" }] }),
+    });
+    const logA = create.body.data[0].id;
+    const logB = create.body.data[1].id;
+    const e = await json(`/api/logs/${logA}/entries`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    const entryId = e.body.data[0].id;
+
+    const { status } = await json(`/api/logs/${logB}/entries/${entryId}/reactions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emoji: "❤️" }),
+    });
+    expect(status).toBe(404);
+
+    // Nothing was applied — entry under its real parent still has no reactions.
+    const fetched = await json(`/api/logs/${logA}/entries`);
+    const summary = fetched.body.data.find((x: any) => x.id === entryId);
+    expect(summary.reactions).toEqual([]);
+  });
+
+  test("returns 400 when emoji is outside the palette", async () => {
+    const create = await json("/api/logs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: [{ name: "Palette" }] }),
+    });
+    const logId = create.body.data[0].id;
+    const e = await json(`/api/logs/${logId}/entries`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    const entryId = e.body.data[0].id;
+
+    const { status, body } = await json(`/api/logs/${logId}/entries/${entryId}/reactions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emoji: "😀" }),
+    });
+    expect(status).toBe(400);
+    expect(body.error).toBeDefined();
+
+    // No reaction was recorded for the out-of-palette emoji.
+    const list = await json(`/api/logs/${logId}/entries`);
+    const summary = list.body.data.find((x: any) => x.id === entryId);
+    expect(summary.reactions).toEqual([]);
+  });
+
+  test("emits log_entry DomainEvent on success (observable via EventBus)", async () => {
+    const create = await json("/api/logs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: [{ name: "Event" }] }),
+    });
+    const logId = create.body.data[0].id;
+    const e = await json(`/api/logs/${logId}/entries`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    const entryId = e.body.data[0].id;
+
+    const seen: DomainEvent[] = [];
+    const unsubscribe = ctx.eventBus.subscribe((ev) => seen.push(ev));
+
+    try {
+      const { status } = await json(`/api/logs/${logId}/entries/${entryId}/reactions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emoji: "🎉" }),
+      });
+      expect(status).toBe(200);
+    } finally {
+      unsubscribe();
+    }
+
+    // At least one log_entry event fired for this entry during the reaction call.
+    const reactionEvents = seen.filter((ev) =>
+      ev.entity_type === "log_entry" &&
+      ev.type === "updated" &&
+      Array.isArray((ev as any).payload) &&
+      (ev as any).payload.some((p: any) => p.id === entryId),
+    );
+    expect(reactionEvents.length).toBeGreaterThanOrEqual(1);
   });
 });

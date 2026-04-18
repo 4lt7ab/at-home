@@ -47,6 +47,7 @@ export interface ILogService {
 export interface ILogEntryService {
   list(filter?: LogEntryFilter): Promise<Paginated<LogEntrySummary>>;
   get(id: string): Promise<LogEntry>;
+  getSummary(id: string): Promise<LogEntrySummary>;
   create(inputs: CreateLogEntryInput[]): Promise<LogEntry[]>;
   update(inputs: UpdateLogEntryInput[]): Promise<LogEntry[]>;
   remove(ids: string[]): Promise<number>;

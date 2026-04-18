@@ -18,7 +18,7 @@ const METADATA_MAX_BYTES = 64 * 1024; // 64 KiB sanity check
 export const PALETTE = ["❤️", "👍", "🎉", "🔥", "✅", "🤔", "🦖", "🫠", "🪄"] as const;
 export type PaletteEmoji = typeof PALETTE[number];
 
-const PALETTE_SET: ReadonlySet<string> = new Set(PALETTE);
+export const PALETTE_SET: ReadonlySet<string> = new Set(PALETTE);
 
 function isValidISODateTime(s: string): boolean {
   const d = new Date(s);
@@ -49,6 +49,13 @@ export class LogEntryService implements ILogEntryService {
     const entry = await this.logEntryRepo.findById(id);
     if (!entry) throw new ServiceError("log entry not found", 404);
     return entry;
+  }
+
+  async getSummary(id: string): Promise<LogEntrySummary> {
+    const entry = await this.logEntryRepo.findById(id);
+    if (!entry) throw new ServiceError("log entry not found", 404);
+    const reactions = await this.reactionRepo.projectionsForIds([id]);
+    return toLogEntrySummary(entry, reactions.get(id) ?? []);
   }
 
   async create(inputs: CreateLogEntryInput[]): Promise<LogEntry[]> {

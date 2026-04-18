@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import {
   ServiceError,
   type ILogService,
@@ -8,6 +9,15 @@ import {
   type CreateLogEntryInput,
   type UpdateLogEntryInput,
 } from "../../domain";
+import { PALETTE, PALETTE_SET } from "../../domain/services/log-entries";
+
+// Body schema for POST reactions — emoji must be one of the canonical PALETTE
+// entries. PALETTE_SET is the single source of truth.
+const reactionBodySchema = z.object({
+  emoji: z.string().refine((e) => PALETTE_SET.has(e), {
+    message: `emoji must be one of: ${PALETTE.join(", ")}`,
+  }),
+});
 
 export function logRoutes(logService: ILogService, logEntryService: ILogEntryService): Hono {
   const app = new Hono();
@@ -173,6 +183,36 @@ export function logRoutes(logService: ILogService, logEntryService: ILogEntrySer
     }
     await logEntryService.remove([entry_id]);
     return c.body(null, 204);
+  });
+
+  // POST /api/logs/:log_id/entries/:entry_id/reactions — increment reaction count.
+  // Never decrements (no DELETE companion). Body { emoji } is validated against
+  // PALETTE; parent log mismatch returns 404. Returns the updated LogEntrySummary
+  // so the client sees the fresh reactions projection in one hop. applyReaction
+  // emits the log_entry DomainEvent internally — we do not emit here.
+  app.post("/:log_id/entries/:entry_id/reactions", async (c) => {
+    const log_id = c.req.param("log_id");
+    const entry_id = c.req.param("entry_id");
+
+    const existing = await logEntryService.get(entry_id);
+    if (existing.log_id !== log_id) {
+      throw new ServiceError("log entry not found under this log", 404);
+    }
+
+    let raw: unknown;
+    try {
+      raw = await c.req.json();
+    } catch {
+      return c.json({ error: "invalid JSON body" }, 400);
+    }
+    const parsed = reactionBodySchema.safeParse(raw);
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.issues[0]?.message ?? "invalid body" }, 400);
+    }
+
+    await logEntryService.applyReaction(entry_id, parsed.data.emoji);
+    const summary = await logEntryService.getSummary(entry_id);
+    return c.json(summary);
   });
 
   // GET /api/logs/:id  (specific-log fetch; registered after /:log_id/entries so the matcher prefers the nested route)
