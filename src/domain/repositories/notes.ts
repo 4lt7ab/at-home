@@ -35,7 +35,7 @@ export class NoteRepository {
 
     return await this.sql<Note[]>`
       SELECT * FROM notes ${where}
-      ORDER BY created_at ASC LIMIT ${limit} OFFSET ${offset}
+      ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}
     `;
   }
 

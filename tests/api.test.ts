@@ -138,6 +138,28 @@ describe("GET /api/notes", () => {
     const { status } = await json("/api/notes?limit=-5");
     expect(status).toBe(200);
   });
+
+  test("→ 200 returns notes ordered newest-first (created_at DESC)", async () => {
+    // Seed three notes with explicit, distinct timestamps via raw SQL so the ordering
+    // assertion is deterministic. (NoteRepository.insertMany shares one timestamp across
+    // a batch, so creating through the API would produce ties.)
+    const seeded = [
+      { id: "01ZZZZZZZZZZZZZZZZZZZZZZZZ", title: "Order-old", ts: "2026-01-01T00:00:00.000Z" },
+      { id: "01ZZZZZZZZZZZZZZZZZZZZZZZY", title: "Order-mid", ts: "2026-02-01T00:00:00.000Z" },
+      { id: "01ZZZZZZZZZZZZZZZZZZZZZZZX", title: "Order-new", ts: "2026-03-01T00:00:00.000Z" },
+    ];
+    for (const r of seeded) {
+      await ctx.sql`INSERT INTO notes (id, title, context, created_at, updated_at)
+        VALUES (${r.id}, ${r.title}, NULL, ${r.ts}, ${r.ts})`;
+    }
+
+    const { status, body } = await json("/api/notes?title=Order-");
+    expect(status).toBe(200);
+    expect(body.data.length).toBe(3);
+    expect(body.data.map((n: NoteSummary) => n.title)).toEqual(["Order-new", "Order-mid", "Order-old"]);
+
+    await ctx.sql`DELETE FROM notes WHERE id = ANY(${seeded.map((r) => r.id)})`;
+  });
 });
 
 // ---------------------------------------------------------------------------

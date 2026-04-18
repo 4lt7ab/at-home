@@ -148,4 +148,25 @@ describe("NoteService", () => {
     const deleted = await ctx.noteService.remove([]);
     expect(deleted).toBe(0);
   });
+
+  test("list orders by created_at DESC (newest-first)", async () => {
+    // Insert with explicit, distinct timestamps so the ordering assertion is deterministic.
+    // (NoteRepository.insertMany captures `now` once per batch, so service-level inserts
+    // within a single call all share the same created_at.)
+    await ctx.sql`DELETE FROM notes`;
+    const rows = [
+      { id: "01AAAAAAAAAAAAAAAAAAAAAAAA", title: "Oldest note", ts: "2026-01-01T00:00:00.000Z" },
+      { id: "01BBBBBBBBBBBBBBBBBBBBBBBB", title: "Middle note", ts: "2026-02-01T00:00:00.000Z" },
+      { id: "01CCCCCCCCCCCCCCCCCCCCCCCC", title: "Newest note", ts: "2026-03-01T00:00:00.000Z" },
+    ];
+    for (const r of rows) {
+      await ctx.sql`INSERT INTO notes (id, title, context, created_at, updated_at)
+        VALUES (${r.id}, ${r.title}, NULL, ${r.ts}, ${r.ts})`;
+    }
+
+    const result = await ctx.noteService.list({ limit: 100 });
+    expect(result.data.map((n) => n.title)).toEqual(["Newest note", "Middle note", "Oldest note"]);
+
+    await ctx.sql`DELETE FROM notes`;
+  });
 });
