@@ -1,4 +1,4 @@
-import type { Note, NoteSummary, Reminder, ReminderSummary, Log, LogSummary, LogEntry, LogEntrySummary } from "./entities";
+import type { Note, NoteSummary, Reminder, ReminderSummary, Log, LogSummary, LogEntry, LogEntryReaction, LogEntrySummary } from "./entities";
 import type {
   CreateNoteInput,
   UpdateNoteInput,
@@ -50,4 +50,5 @@ export interface ILogEntryService {
   create(inputs: CreateLogEntryInput[]): Promise<LogEntry[]>;
   update(inputs: UpdateLogEntryInput[]): Promise<LogEntry[]>;
   remove(ids: string[]): Promise<number>;
+  applyReaction(log_entry_id: string, emoji: string): Promise<LogEntryReaction>;
 }

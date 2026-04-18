@@ -74,6 +74,14 @@ export interface LogEntry {
   updated_at: string;
 }
 
+export interface LogEntryReaction {
+  log_entry_id: string;
+  emoji: string;
+  count: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface LogSummary {
   id: string;
   name: string;
@@ -91,6 +99,7 @@ export interface LogEntrySummary {
   note: string | null;
   note_preview: string | null;
   has_metadata: boolean;
+  reactions: Array<{ emoji: string; count: number }>;
   created_at: string;
   updated_at: string;
 }
@@ -110,7 +119,10 @@ export function toLogSummary(
   };
 }
 
-export function toLogEntrySummary(e: LogEntry): LogEntrySummary {
+export function toLogEntrySummary(
+  e: LogEntry,
+  reactions: Array<{ emoji: string; count: number }> = [],
+): LogEntrySummary {
   return {
     id: e.id,
     log_id: e.log_id,
@@ -120,6 +132,7 @@ export function toLogEntrySummary(e: LogEntry): LogEntrySummary {
       ? null
       : (e.note.length > 100 ? e.note.slice(0, 100) + "…" : e.note),
     has_metadata: e.metadata != null && Object.keys(e.metadata).length > 0,
+    reactions,
     created_at: e.created_at,
     updated_at: e.updated_at,
   };

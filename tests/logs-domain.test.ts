@@ -9,17 +9,20 @@ let ctx: AppContext;
 
 beforeAll(async () => {
   ctx = await bootstrap(TEST_DB);
+  await ctx.sql`DELETE FROM log_entry_reactions`;
   await ctx.sql`DELETE FROM log_entries`;
   await ctx.sql`DELETE FROM logs`;
 });
 
 afterAll(async () => {
+  await ctx.sql`DELETE FROM log_entry_reactions`;
   await ctx.sql`DELETE FROM log_entries`;
   await ctx.sql`DELETE FROM logs`;
   await ctx.sql.end();
 });
 
 beforeEach(async () => {
+  await ctx.sql`DELETE FROM log_entry_reactions`;
   await ctx.sql`DELETE FROM log_entries`;
   await ctx.sql`DELETE FROM logs`;
 });
@@ -339,6 +342,138 @@ describe("Cascade delete", () => {
 
     const after = await ctx.logEntryService.list({ log_id: log.id });
     expect(after.total).toBe(0);
+  });
+});
+
+describe("LogEntryService reactions", () => {
+  test("applyReaction increments count on repeated calls (happy path)", async () => {
+    const [log] = await ctx.logService.create([{ name: "React" }]);
+    const [entry] = await ctx.logEntryService.create([{ log_id: log.id }]);
+
+    const first = await ctx.logEntryService.applyReaction(entry.id, "❤️");
+    expect(first.log_entry_id).toBe(entry.id);
+    expect(first.emoji).toBe("❤️");
+    expect(first.count).toBe(1);
+
+    const second = await ctx.logEntryService.applyReaction(entry.id, "❤️");
+    expect(second.count).toBe(2);
+
+    const third = await ctx.logEntryService.applyReaction(entry.id, "❤️");
+    expect(third.count).toBe(3);
+
+    // Different emoji starts fresh at 1
+    const fire = await ctx.logEntryService.applyReaction(entry.id, "🔥");
+    expect(fire.count).toBe(1);
+
+    const rows = await ctx.logEntryReactionRepo.list(entry.id);
+    expect(rows.length).toBe(2);
+  });
+
+  test("applyReaction rejects emoji outside the palette", async () => {
+    const [log] = await ctx.logService.create([{ name: "Palette" }]);
+    const [entry] = await ctx.logEntryService.create([{ log_id: log.id }]);
+
+    expect(ctx.logEntryService.applyReaction(entry.id, "😀")).rejects.toThrow(ServiceError);
+    expect(ctx.logEntryService.applyReaction(entry.id, "")).rejects.toThrow(ServiceError);
+    expect(ctx.logEntryService.applyReaction(entry.id, "❤")).rejects.toThrow(ServiceError);
+
+    // No row was ever inserted
+    const rows = await ctx.logEntryReactionRepo.list(entry.id);
+    expect(rows.length).toBe(0);
+  });
+
+  test("applyReaction rejects non-existent log entry", async () => {
+    expect(ctx.logEntryService.applyReaction("missing-entry", "👍")).rejects.toThrow(ServiceError);
+  });
+
+  test("cascade delete removes reactions when parent log entry is deleted", async () => {
+    const [log] = await ctx.logService.create([{ name: "Cascade" }]);
+    const [entry] = await ctx.logEntryService.create([{ log_id: log.id }]);
+
+    await ctx.logEntryService.applyReaction(entry.id, "❤️");
+    await ctx.logEntryService.applyReaction(entry.id, "🎉");
+    await ctx.logEntryService.applyReaction(entry.id, "🎉");
+
+    const before = await ctx.logEntryReactionRepo.list(entry.id);
+    expect(before.length).toBe(2);
+
+    // Delete the log entry directly → reactions should cascade
+    await ctx.logEntryService.remove([entry.id]);
+
+    const after = await ctx.logEntryReactionRepo.list(entry.id);
+    expect(after.length).toBe(0);
+
+    // And also cascade through the parent log
+    const [entry2] = await ctx.logEntryService.create([{ log_id: log.id }]);
+    await ctx.logEntryService.applyReaction(entry2.id, "🔥");
+    await ctx.logService.remove([log.id]);
+    const afterLog = await ctx.logEntryReactionRepo.list(entry2.id);
+    expect(afterLog.length).toBe(0);
+  });
+
+  test("projection returns empty arrays for entries with no reactions", async () => {
+    const [log] = await ctx.logService.create([{ name: "Empty" }]);
+    const entries = await ctx.logEntryService.create([
+      { log_id: log.id, occurred_at: "2026-01-01T00:00:00.000Z" },
+      { log_id: log.id, occurred_at: "2026-02-01T00:00:00.000Z" },
+    ]);
+
+    const projections = await ctx.logEntryReactionRepo.projectionsForIds(entries.map((e) => e.id));
+    expect(projections.size).toBe(2);
+    for (const entry of entries) {
+      expect(projections.get(entry.id)).toEqual([]);
+    }
+
+    // And via the service.list path, summaries carry reactions: []
+    const result = await ctx.logEntryService.list({ log_id: log.id });
+    expect(result.data.length).toBe(2);
+    for (const summary of result.data) {
+      expect(summary.reactions).toEqual([]);
+    }
+  });
+
+  test("projection batches reactions correctly for mixed entries", async () => {
+    const [log] = await ctx.logService.create([{ name: "Batch" }]);
+    const entries = await ctx.logEntryService.create([
+      { log_id: log.id, occurred_at: "2026-01-01T00:00:00.000Z" },
+      { log_id: log.id, occurred_at: "2026-02-01T00:00:00.000Z" },
+      { log_id: log.id, occurred_at: "2026-03-01T00:00:00.000Z" },
+    ]);
+    const [a, b, c] = entries;
+
+    // a gets two emojis with different counts
+    await ctx.logEntryService.applyReaction(a.id, "❤️");
+    await ctx.logEntryService.applyReaction(a.id, "❤️");
+    await ctx.logEntryService.applyReaction(a.id, "🔥");
+
+    // b gets one emoji, single count
+    await ctx.logEntryService.applyReaction(b.id, "🎉");
+
+    // c gets nothing
+
+    const projections = await ctx.logEntryReactionRepo.projectionsForIds([a.id, b.id, c.id]);
+    expect(projections.size).toBe(3);
+
+    const aReactions = projections.get(a.id)!;
+    expect(aReactions.length).toBe(2);
+    const aMap = new Map(aReactions.map((r) => [r.emoji, r.count]));
+    expect(aMap.get("❤️")).toBe(2);
+    expect(aMap.get("🔥")).toBe(1);
+
+    expect(projections.get(b.id)).toEqual([{ emoji: "🎉", count: 1 }]);
+    expect(projections.get(c.id)).toEqual([]);
+
+    // Service.list surfaces the same projection on summaries
+    const result = await ctx.logEntryService.list({ log_id: log.id });
+    const byId = new Map(result.data.map((e) => [e.id, e]));
+    expect(byId.get(a.id)!.reactions.length).toBe(2);
+    expect(byId.get(b.id)!.reactions).toEqual([{ emoji: "🎉", count: 1 }]);
+    expect(byId.get(c.id)!.reactions).toEqual([]);
+  });
+
+  test("projectionsForIds handles empty id list", async () => {
+    const projections = await ctx.logEntryReactionRepo.projectionsForIds([]);
+    expect(projections.size).toBe(0);
   });
 });
 

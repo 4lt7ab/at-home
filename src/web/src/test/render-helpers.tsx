@@ -121,6 +121,7 @@ export function makeLogEntrySummary(overrides: Partial<LogEntrySummary> = {}): L
     note: null,
     note_preview: null,
     has_metadata: false,
+    reactions: [],
     created_at: NOW,
     updated_at: NOW,
     ...overrides,

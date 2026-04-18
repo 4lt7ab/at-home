@@ -7,6 +7,7 @@ import { ReminderRepository } from "./repositories/reminders";
 import { ReminderService } from "./services/reminders";
 import { LogRepository } from "./repositories/logs";
 import { LogEntryRepository } from "./repositories/log-entries";
+import { LogEntryReactionRepository } from "./repositories/log-entry-reactions";
 import { LogService } from "./services/logs";
 import { LogEntryService } from "./services/log-entries";
 import { EventBus } from "./events";
@@ -20,6 +21,7 @@ export interface AppContext {
   reminderService: ReminderService;
   logRepo: LogRepository;
   logEntryRepo: LogEntryRepository;
+  logEntryReactionRepo: LogEntryReactionRepository;
   logService: LogService;
   logEntryService: LogEntryService;
 }
@@ -35,8 +37,9 @@ export async function bootstrap(databaseUrl?: string): Promise<AppContext> {
   const reminderService = new ReminderService(reminderRepo, eventBus);
   const logRepo = new LogRepository(sql);
   const logEntryRepo = new LogEntryRepository(sql);
+  const logEntryReactionRepo = new LogEntryReactionRepository(sql);
   const logService = new LogService(logRepo, eventBus);
-  const logEntryService = new LogEntryService(logEntryRepo, logRepo, eventBus);
+  const logEntryService = new LogEntryService(logEntryRepo, logRepo, logEntryReactionRepo, eventBus);
 
   return {
     sql,
@@ -47,6 +50,7 @@ export async function bootstrap(databaseUrl?: string): Promise<AppContext> {
     reminderService,
     logRepo,
     logEntryRepo,
+    logEntryReactionRepo,
     logService,
     logEntryService,
   };

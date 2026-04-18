@@ -1,13 +1,24 @@
-import type { LogEntry, LogEntrySummary } from "../entities";
+import type { LogEntry, LogEntryReaction, LogEntrySummary } from "../entities";
 import { toLogEntrySummary } from "../entities";
 import type { CreateLogEntryInput, UpdateLogEntryInput } from "../inputs";
 import type { ILogEntryService, Paginated } from "../services";
 import { ServiceError } from "../errors";
 import type { LogRepository } from "../repositories/logs";
 import type { LogEntryRepository, LogEntryFilter } from "../repositories/log-entries";
+import type { LogEntryReactionRepository } from "../repositories/log-entry-reactions";
 import type { EventBus } from "../events";
 
 const METADATA_MAX_BYTES = 64 * 1024; // 64 KiB sanity check
+
+/**
+ * Fixed palette of reaction emojis. Only these are accepted by applyReaction;
+ * any other emoji is rejected with a 400 ServiceError. Order here is the
+ * canonical display order used by the UI.
+ */
+export const PALETTE = ["❤️", "👍", "🎉", "🔥", "✅", "🤔", "🦖", "🫠", "🪄"] as const;
+export type PaletteEmoji = typeof PALETTE[number];
+
+const PALETTE_SET: ReadonlySet<string> = new Set(PALETTE);
 
 function isValidISODateTime(s: string): boolean {
   const d = new Date(s);
@@ -18,6 +29,7 @@ export class LogEntryService implements ILogEntryService {
   constructor(
     private logEntryRepo: LogEntryRepository,
     private logRepo: LogRepository,
+    private reactionRepo: LogEntryReactionRepository,
     private eventBus: EventBus,
   ) {}
 
@@ -26,7 +38,11 @@ export class LogEntryService implements ILogEntryService {
       this.logEntryRepo.findMany(filter),
       this.logEntryRepo.count(filter),
     ]);
-    return { data: data.map(toLogEntrySummary), total };
+    const reactions = await this.reactionRepo.projectionsForIds(data.map((e) => e.id));
+    return {
+      data: data.map((e) => toLogEntrySummary(e, reactions.get(e.id) ?? [])),
+      total,
+    };
   }
 
   async get(id: string): Promise<LogEntry> {
@@ -116,5 +132,22 @@ export class LogEntryService implements ILogEntryService {
     const deleted = await this.logEntryRepo.deleteMany(ids);
     this.eventBus.emit({ type: "deleted", entity_type: "log_entry", ids });
     return deleted;
+  }
+
+  /**
+   * Increment the reaction count for `emoji` on the given log entry.
+   * Never decrements. Rejects emojis outside the fixed PALETTE with a 400 ServiceError.
+   * Rejects unknown log entry ids with a 404.
+   */
+  async applyReaction(log_entry_id: string, emoji: string): Promise<LogEntryReaction> {
+    if (!PALETTE_SET.has(emoji)) {
+      throw new ServiceError(`emoji not in palette: ${emoji}`, 400);
+    }
+    const entry = await this.logEntryRepo.findById(log_entry_id);
+    if (!entry) throw new ServiceError(`log entry not found: ${log_entry_id}`, 404);
+
+    const reaction = await this.reactionRepo.upsertIncrement(log_entry_id, emoji);
+    this.eventBus.emit({ type: "updated", entity_type: "log_entry", payload: [entry] });
+    return reaction;
   }
 }
