@@ -333,6 +333,94 @@ describe("ReminderDashboardPage", () => {
   });
 
   // -------------------------------------------------------------------------
+  // Quick-dismiss confirmation overlay
+  // -------------------------------------------------------------------------
+
+  describe("quick dismiss confirmation", () => {
+    it("clicking the card's dismiss icon opens the confirmation modal (no API call yet)", () => {
+      const reminders = [
+        makeReminderSummary({ id: "r1", context_preview: "Pay rent" }),
+      ];
+      setupHook({ thisWeek: { reminders, total: 1 } });
+      renderWithProviders(<ReminderDashboardPage />);
+
+      fireEvent.click(screen.getByLabelText('Dismiss "Pay rent"'));
+
+      // Modal is open — unique title + the big button
+      expect(screen.getByText("Dismiss this reminder?")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Confirm dismiss" })).toBeInTheDocument();
+      // Modal surfaces the reminder's context (appears in both card + modal)
+      expect(screen.getAllByText("Pay rent").length).toBeGreaterThanOrEqual(2);
+
+      // API must NOT have fired yet — confirmation is the whole point.
+      expect(mockDismissReminders).not.toHaveBeenCalled();
+    });
+
+    it("clicking the big confirm button dismisses the reminder and closes the modal", async () => {
+      mockDismissReminders.mockResolvedValue([]);
+      const reminders = [
+        makeReminderSummary({ id: "r1", context_preview: "Pay rent" }),
+      ];
+      setupHook({ thisWeek: { reminders, total: 1 } });
+      renderWithProviders(<ReminderDashboardPage />);
+
+      fireEvent.click(screen.getByLabelText('Dismiss "Pay rent"'));
+      fireEvent.click(screen.getByRole("button", { name: "Confirm dismiss" }));
+
+      await waitFor(() => {
+        expect(mockDismissReminders).toHaveBeenCalledWith([{ id: "r1" }]);
+      });
+
+      // Modal closes
+      await waitFor(() => {
+        expect(screen.queryByText("Dismiss this reminder?")).not.toBeInTheDocument();
+      });
+    });
+
+    it("pressing Escape closes the modal without dismissing", async () => {
+      const reminders = [
+        makeReminderSummary({ id: "r1", context_preview: "Pay rent" }),
+      ];
+      setupHook({ thisWeek: { reminders, total: 1 } });
+      renderWithProviders(<ReminderDashboardPage />);
+
+      fireEvent.click(screen.getByLabelText('Dismiss "Pay rent"'));
+      expect(screen.getByText("Dismiss this reminder?")).toBeInTheDocument();
+
+      fireEvent.keyDown(document, { key: "Escape" });
+
+      await waitFor(() => {
+        expect(screen.queryByText("Dismiss this reminder?")).not.toBeInTheDocument();
+      });
+      expect(mockDismissReminders).not.toHaveBeenCalled();
+    });
+
+    it("recurring reminders show the advance-on-dismiss message", () => {
+      const reminders = [
+        makeReminderSummary({ id: "r1", context_preview: "Weekly standup", recurrence: "weekly" }),
+      ];
+      setupHook({ thisWeek: { reminders, total: 1 } });
+      renderWithProviders(<ReminderDashboardPage />);
+
+      fireEvent.click(screen.getByLabelText('Dismiss "Weekly standup"'));
+
+      expect(screen.getByText(/Advances to the next weekly occurrence/)).toBeInTheDocument();
+    });
+
+    it("non-recurring reminders show the will-be-removed message", () => {
+      const reminders = [
+        makeReminderSummary({ id: "r1", context_preview: "One-shot task", recurrence: null }),
+      ];
+      setupHook({ thisWeek: { reminders, total: 1 } });
+      renderWithProviders(<ReminderDashboardPage />);
+
+      fireEvent.click(screen.getByLabelText('Dismiss "One-shot task"'));
+
+      expect(screen.getByText(/This reminder will be removed/)).toBeInTheDocument();
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Dormant section
   // -------------------------------------------------------------------------
 

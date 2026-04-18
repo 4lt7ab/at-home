@@ -260,6 +260,77 @@ function EditReminderOverlay({ reminder, onClose, onChanged }: {
 }
 
 // ---------------------------------------------------------------------------
+// DismissConfirmOverlay — one-big-button confirmation, backdrop/Esc cancels
+// ---------------------------------------------------------------------------
+
+function DismissConfirmOverlay({ reminder, onClose, onDismissed }: {
+  reminder: ReminderSummary;
+  onClose: () => void;
+  onDismissed: () => void;
+}): React.JSX.Element {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleDismiss(): Promise<void> {
+    setBusy(true);
+    setError(null);
+    try {
+      await dismissReminders([{ id: reminder.id }]);
+      onDismissed();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to dismiss");
+      setBusy(false);
+    }
+  }
+
+  const fate = reminder.recurrence
+    ? `Advances to the next ${reminder.recurrence} occurrence.`
+    : "This reminder will be removed.";
+
+  return (
+    <ModalShell onClose={onClose} maxWidth={420} role="alertdialog" aria-label="Confirm dismiss">
+      <div style={{ textAlign: "center" }}>
+        <div aria-hidden="true" style={{ fontSize: "2.5rem", lineHeight: 1, marginBottom: t.spaceSm }}>
+          ✨
+        </div>
+        <h3 style={{ fontSize: t.fontSizeLg, fontWeight: t.fontWeightSemibold, margin: 0, marginBottom: t.spaceSm }}>
+          Dismiss this reminder?
+        </h3>
+        <div style={{ fontSize: t.fontSizeSm, color: t.colorTextMuted, marginBottom: t.spaceLg }}>
+          <div style={{ fontWeight: t.fontWeightMedium, color: t.colorText, marginBottom: t.spaceXs }}>
+            {reminder.context_preview}
+          </div>
+          <div>{formatRemindAt(reminder.remind_at)}</div>
+          <div style={{ marginTop: t.spaceXs }}>{fate}</div>
+        </div>
+        <Button
+          variant="primary"
+          size="lg"
+          type="button"
+          onClick={handleDismiss}
+          disabled={busy}
+          autoFocus
+          aria-label="Confirm dismiss"
+        >
+          <span style={{ display: "inline-flex", alignItems: "center", gap: t.spaceXs, fontWeight: t.fontWeightSemibold, padding: `${t.spaceSm} ${t.spaceXl}`, fontSize: t.fontSizeBase }}>
+            {busy ? "Dismissing…" : "Done! 🎉"}
+          </span>
+        </Button>
+        {error && (
+          <div role="alert" style={{ color: t.colorError, fontSize: t.fontSizeSm, marginTop: t.spaceSm }}>
+            {error}
+          </div>
+        )}
+        <div style={{ fontSize: t.fontSizeXs, color: t.colorTextMuted, marginTop: t.spaceMd }}>
+          Press Esc or click outside to cancel.
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // ReminderCard
 // ---------------------------------------------------------------------------
 
@@ -383,6 +454,7 @@ function ReminderSection({ title, reminders, loading, error, onEdit, onDismiss, 
 export function ReminderDashboardPage(): React.JSX.Element {
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<ReminderSummary | null>(null);
+  const [dismissing, setDismissing] = useState<ReminderSummary | null>(null);
 
   const today = useMemo(() => getTodayBounds(), []);
   const thisWeek = useMemo(() => getWeekBounds(0), []);
@@ -433,13 +505,9 @@ export function ReminderDashboardPage(): React.JSX.Element {
     dormantData.refetch();
   }
 
-  async function handleQuickDismiss(reminder: ReminderSummary): Promise<void> {
-    try {
-      await dismissReminders([{ id: reminder.id }]);
-      refetchAll();
-    } catch {
-      // Dismiss failed silently — user can retry via edit modal
-    }
+  function handleQuickDismiss(reminder: ReminderSummary): void {
+    // Don't fire the API yet — surface a confirmation first.
+    setDismissing(reminder);
   }
 
   return (
@@ -527,6 +595,14 @@ export function ReminderDashboardPage(): React.JSX.Element {
           reminder={editing}
           onClose={() => setEditing(null)}
           onChanged={refetchAll}
+        />
+      )}
+
+      {dismissing && (
+        <DismissConfirmOverlay
+          reminder={dismissing}
+          onClose={() => setDismissing(null)}
+          onDismissed={refetchAll}
         />
       )}
     </PageShell>
