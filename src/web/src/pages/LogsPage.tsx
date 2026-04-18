@@ -16,6 +16,7 @@ import {
   deleteLogEntry,
 } from "../api";
 import { formatRelativeTime } from "../utils";
+import { ReactionStrip } from "../components/ReactionStrip";
 
 // ---------------------------------------------------------------------------
 // CreateLogOverlay
@@ -282,6 +283,11 @@ function EntryRow({ entry, onEdit, onDelete, index }: {
                 (has metadata)
               </div>
             )}
+            <ReactionStrip
+              logId={entry.log_id}
+              entryId={entry.id}
+              reactions={entry.reactions}
+            />
           </div>
           <IconButton
             icon="edit"

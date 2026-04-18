@@ -248,3 +248,20 @@ export async function deleteLogEntry(logId: string, entryId: string): Promise<vo
     { method: "DELETE" },
   );
 }
+
+/**
+ * Increment a reaction on a log entry. `emoji` must be one of the PALETTE
+ * emojis (single source of truth with the backend); the server 400s otherwise.
+ * Returns the updated LogEntrySummary with the fresh `reactions` projection.
+ */
+export async function addLogEntryReaction(
+  logId: string,
+  entryId: string,
+  emoji: string,
+): Promise<LogEntrySummary> {
+  const res = await apiFetch(
+    `/api/logs/${encodeURIComponent(logId)}/entries/${encodeURIComponent(entryId)}/reactions`,
+    jsonPost({ emoji }),
+  );
+  return res.json();
+}
