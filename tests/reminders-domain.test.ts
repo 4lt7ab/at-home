@@ -180,22 +180,20 @@ describe("ReminderService", () => {
 
   // -- Dismiss logic ------------------------------------------------------
 
-  test("dismiss non-recurring → becomes dormant", async () => {
+  test("dismiss non-recurring → reminder is deleted", async () => {
     const [nonRecurring] = await ctx.reminderService.create([
       { context: "One-time task", remind_at: "2026-04-10T09:00:00.000Z" },
     ]);
 
     const dismissed = await ctx.reminderService.dismiss({ id: nonRecurring.id });
-    expect(dismissed.dismissed_at).toBeDefined();
+    // Return shape: last snapshot with dismissed_at set (so callers have something to render).
+    expect(dismissed.id).toBe(nonRecurring.id);
     expect(dismissed.dismissed_at).not.toBeNull();
-    // remind_at unchanged — dismissed_at >= remind_at makes it dormant
-    expect(dismissed.remind_at).toBe("2026-04-10T09:00:00.000Z");
 
-    // Verify dormant via list filter
-    const dormant = await ctx.reminderService.list({ status: "dormant", context: "One-time task" });
-    expect(dormant.data.length).toBe(1);
-    expect(dormant.data[0].id).toBe(nonRecurring.id);
-    expect(dormant.data[0].is_active).toBe(false);
+    // Row is gone from the DB.
+    expect(ctx.reminderService.get(nonRecurring.id)).rejects.toThrow(ServiceError);
+    const listed = await ctx.reminderService.list({ context: "One-time task" });
+    expect(listed.total).toBe(0);
   });
 
   test("dismiss recurring (weekly) → remind_at advances by 7 days (first)", async () => {
@@ -302,64 +300,35 @@ describe("ReminderService", () => {
     await ctx.reminderService.remove([recurring.id]);
   });
 
-  test("dismissed non-recurring reminder is dormant", async () => {
-    const [nonRecurring] = await ctx.reminderService.create([
-      { context: "Dormant check", remind_at: "2026-04-10T09:00:00.000Z" },
-    ]);
-
-    const dismissed = await ctx.reminderService.dismiss({ id: nonRecurring.id });
-    // dismissed_at is "now" (2026-04-12+) which is >= remind_at (2026-04-10) → dormant
-    expect(dismissed.dismissed_at! >= dismissed.remind_at).toBe(true);
-
-    const dormantList = await ctx.reminderService.list({ status: "dormant", context: "Dormant check" });
-    expect(dormantList.data.length).toBe(1);
-    expect(dormantList.data[0].is_active).toBe(false);
-
-    await ctx.reminderService.remove([nonRecurring.id]);
-  });
-
-  test("dismiss non-recurring with future remind_at → snaps remind_at to now, goes dormant", async () => {
+  test("dismiss non-recurring with future remind_at → deletes reminder", async () => {
     const [futureReminder] = await ctx.reminderService.create([
       { context: "Future dismiss check", remind_at: "2099-12-31T23:59:00.000Z" },
     ]);
 
     const dismissed = await ctx.reminderService.dismiss({ id: futureReminder.id });
-    // remind_at should be snapped to now so dismissed_at >= remind_at → dormant
     expect(dismissed.dismissed_at).not.toBeNull();
-    expect(dismissed.remind_at).not.toBe("2099-12-31T23:59:00.000Z");
-    expect(dismissed.dismissed_at! >= dismissed.remind_at).toBe(true);
 
-    const dormantList = await ctx.reminderService.list({ status: "dormant", context: "Future dismiss check" });
-    expect(dormantList.data.length).toBe(1);
-    expect(dormantList.data[0].is_active).toBe(false);
-
-    await ctx.reminderService.remove([futureReminder.id]);
+    expect(ctx.reminderService.get(futureReminder.id)).rejects.toThrow(ServiceError);
+    const listed = await ctx.reminderService.list({ context: "Future dismiss check" });
+    expect(listed.total).toBe(0);
   });
 
-  // -- Reactivation -------------------------------------------------------
-
-  test("update dormant reminder with new remind_at → becomes active", async () => {
-    // Create and dismiss a non-recurring reminder to make it dormant
+  test("dismiss non-recurring emits 'deleted' event (not 'updated')", async () => {
     const [reminder] = await ctx.reminderService.create([
-      { context: "Reactivate me", remind_at: "2026-04-01T09:00:00.000Z" },
+      { context: "Event check", remind_at: "2026-04-10T09:00:00.000Z" },
     ]);
+
+    const events: Array<{ type: string; ids?: string[] }> = [];
+    const unsub = ctx.eventBus.subscribe((e) => {
+      if (e.entity_type === "reminder" && e.type !== "created") {
+        events.push({ type: e.type, ids: e.type === "deleted" ? e.ids : undefined });
+      }
+    });
+
     await ctx.reminderService.dismiss({ id: reminder.id });
+    unsub();
 
-    // Verify dormant
-    const dormant = await ctx.reminderService.list({ status: "dormant", context: "Reactivate me" });
-    expect(dormant.data.length).toBe(1);
-
-    // Update with future remind_at → should become active (dismissed_at < new remind_at)
-    const [reactivated] = await ctx.reminderService.update([
-      { id: reminder.id, remind_at: "2099-01-01T00:00:00.000Z" },
-    ]);
-    expect(reactivated.remind_at).toBe("2099-01-01T00:00:00.000Z");
-
-    const active = await ctx.reminderService.list({ status: "active", context: "Reactivate me" });
-    expect(active.data.length).toBe(1);
-    expect(active.data[0].id).toBe(reminder.id);
-
-    await ctx.reminderService.remove([reminder.id]);
+    expect(events).toEqual([{ type: "deleted", ids: [reminder.id] }]);
   });
 
   // -- Cleanup all remaining reminders ------------------------------------

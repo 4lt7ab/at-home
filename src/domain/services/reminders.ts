@@ -131,22 +131,27 @@ export class ReminderService implements IReminderService {
     }
 
     const now = new Date().toISOString();
+
+    // Delete path: a non-recurring reminder with no override has no future
+    // occurrence to re-surface. Dismiss = done, drop the row.
+    if (!existing.recurrence && input.remind_at === undefined) {
+      await this.reminderRepo.deleteMany([input.id]);
+      this.eventBus.emit({ type: "deleted", entity_type: "reminder", ids: [input.id] });
+      // Return the final snapshot with dismissed_at set so callers have a
+      // stable shape to display before their next refetch.
+      return { ...existing, dismissed_at: now, updated_at: now };
+    }
+
+    // Keep path: recurring advances, or caller provided an explicit override.
     const update: { id: string; dismissed_at: string; remind_at?: string } = {
       id: input.id,
       dismissed_at: now,
     };
-
     if (input.remind_at) {
-      // Override provided — use it as next remind_at
       update.remind_at = input.remind_at;
     } else if (existing.recurrence) {
-      // Recurring with no override — advance remind_at from current remind_at
       update.remind_at = advanceRemindAt(existing.remind_at, existing.recurrence);
-    } else if (existing.remind_at > now) {
-      // Non-recurring dismissed early — snap remind_at to now so dormant condition holds
-      update.remind_at = now;
     }
-    // Non-recurring with remind_at already in the past — dormant naturally (dismissed_at >= remind_at)
 
     const [reminder] = await this.reminderRepo.updateMany([update]);
     this.eventBus.emit({ type: "updated", entity_type: "reminder", payload: [reminder] });

@@ -310,7 +310,7 @@ describe("DELETE /api/reminders", () => {
 // POST /api/reminders/dismiss
 // ---------------------------------------------------------------------------
 describe("POST /api/reminders/dismiss", () => {
-  test("non-recurring reminder goes dormant", async () => {
+  test("non-recurring reminder is deleted", async () => {
     // Create a non-recurring reminder
     const remindAt = futureISO(-1); // in the past so dismissed_at >= remind_at
     const { body: createBody } = await json("/api/reminders", {
@@ -330,10 +330,13 @@ describe("POST /api/reminders/dismiss", () => {
     });
 
     expect(status).toBe(200);
-    expect(body.data[0].dismissed_at).toBeDefined();
+    // Response still returns the final snapshot with dismissed_at set.
+    expect(body.data[0].id).toBe(id);
     expect(body.data[0].dismissed_at).not.toBeNull();
-    // remind_at should NOT change (no recurrence, no override)
-    expect(body.data[0].remind_at).toBe(createBody.data[0].remind_at);
+
+    // But the reminder is gone.
+    const { status: getStatus } = await json(`/api/reminders/${id}`);
+    expect(getStatus).toBe(404);
   });
 
   test("recurring reminder advances remind_at", async () => {
