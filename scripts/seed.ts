@@ -13,6 +13,8 @@
  *   - Reminders: overdue, this week, next week, recurring (all cadences),
  *     one-shot, and dormant
  *   - Logs: empty, frequent entries, sparse, with metadata, with long notes
+ *   - Log entry reactions: one entry with multiple emojis at varied counts,
+ *     one entry with a single reaction, and the rest with none
  */
 
 import { bootstrap } from "../src/domain/bootstrap";
@@ -140,7 +142,7 @@ async function seed(): Promise<void> {
   ]);
 
   // Plant watering — frequent entries, every ~3 days
-  await ctx.logEntryService.create(
+  const plantEntries = await ctx.logEntryService.create(
     [0, 3, 6, 9, 12, 15, 18].map((d) => ({
       log_id: plantWatering.id,
       occurred_at: hoursAgo(d * 24 + 2),
@@ -175,6 +177,28 @@ async function seed(): Promise<void> {
 
   // rareLog → intentionally no entries (exercises the "Never logged" / empty state).
   void rareLog;
+
+  // Reactions — exercises the log-entry reaction render case.
+  // One entry gets multiple emojis at varied counts, one gets a single reaction,
+  // the remaining entries stay empty so the zero-reaction state still renders.
+  // Uses the service (not raw SQL) so the PALETTE validation is exercised.
+  console.log("Applying reactions…");
+  const [mostRecentPlant, secondMostRecentPlant] = plantEntries;
+
+  // Multi-reaction entry: varied counts across three palette emojis.
+  const multiReactionPlan: Array<[string, number]> = [
+    ["❤️", 3],
+    ["🎉", 1],
+    ["🦖", 7],
+  ];
+  for (const [emoji, count] of multiReactionPlan) {
+    for (let i = 0; i < count; i++) {
+      await ctx.logEntryService.applyReaction(mostRecentPlant.id, emoji);
+    }
+  }
+
+  // Single-reaction entry: one palette emoji, count 1.
+  await ctx.logEntryService.applyReaction(secondMostRecentPlant.id, "👍");
 
   // Summary
   const noteCount = (await ctx.noteService.list({ limit: 1 })).total;
