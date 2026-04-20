@@ -8,6 +8,7 @@ import {
 import { Markdown } from "@4lt7ab/ui/content";
 import type { Note, NoteSummary } from "@domain/entities";
 import { useNotes, useWindowWidth, SMALL_BREAKPOINT, useShortcut } from "../hooks";
+import { usePaletteAction } from "../hooks/usePaletteActions";
 import { fetchNote, createNotes, updateNotes, deleteNotes } from "../api";
 import { formatRelativeTime } from "../utils";
 
@@ -334,6 +335,10 @@ export function NoteListPage(): React.JSX.Element {
 
   // -- Keyboard shortcuts --------------------------------------------------
   useShortcut("n", "New note", () => setShowCreate(true), "Notes");
+
+  // -- Palette bridge ------------------------------------------------------
+  const openCreate = useCallback(() => setShowCreate(true), []);
+  usePaletteAction("new-note", openCreate);
 
   // -- Mobile: show detail when selected -----------------------------------
   const showingDetail = !isDesktop && selectedId !== null;

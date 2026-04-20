@@ -7,6 +7,7 @@ import {
 } from "@4lt7ab/ui/ui";
 import type { LogSummary, LogEntrySummary } from "@domain/entities";
 import { useLogs, useLogEntries } from "../hooks";
+import { usePaletteAction } from "../hooks/usePaletteActions";
 import {
   createLogs,
   updateLogs,
@@ -511,6 +512,11 @@ export function LogsPage(): React.JSX.Element {
   const [loggingIds, setLoggingIds] = useState<Set<string>>(new Set());
 
   const { logs, loading, error, refetch } = useLogs({ limit: 200 });
+
+  // Palette bridge: "New log" from Cmd+K opens the CreateLogOverlay after
+  // the palette navigates here.
+  const openCreate = useCallback(() => setShowCreate(true), []);
+  usePaletteAction("new-log", openCreate);
 
   const handleLogIt = useCallback(async (log: LogSummary) => {
     setLoggingIds((prev) => new Set(prev).add(log.id));

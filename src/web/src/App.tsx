@@ -7,6 +7,7 @@ import { useEventFanOut, useHashRoute, EventSubscriptionContext } from "./hooks"
 import { NoteListPage } from "./pages/NoteListPage";
 import { ReminderDashboardPage } from "./pages/ReminderDashboardPage";
 import { LogsPage } from "./pages/LogsPage";
+import { AppCommandPalette } from "./components/AppCommandPalette";
 
 const NAV_TABS = [
   { key: "notes", label: "Notes" },
@@ -66,6 +67,7 @@ export function App(): React.JSX.Element {
             size="sm"
           />
           <div style={{ display: "flex", alignItems: "center", gap: t.spaceSm }}>
+            <AppCommandPalette />
             <StatusDot
               variant={connected ? "success" : "error"}
               size="sm"

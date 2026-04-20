@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { semantic as t, staggerStyle, useDisclosure } from "@4lt7ab/ui/core";
 import {
   Card, Badge, Button, IconButton, Stack, Skeleton, EmptyState,
@@ -7,6 +7,7 @@ import {
 } from "@4lt7ab/ui/ui";
 import type { ReminderSummary, Recurrence } from "@domain/entities";
 import { useReminders } from "../hooks";
+import { usePaletteAction } from "../hooks/usePaletteActions";
 import { createReminders, dismissReminders, updateReminders, deleteReminders } from "../api";
 import { formatRemindAt, dateToDayUtcIso, utcIsoToLocalDate, getTodayBounds, getWeekBounds } from "../utils";
 
@@ -524,6 +525,11 @@ export function ReminderDashboardPage(): React.JSX.Element {
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<ReminderSummary | null>(null);
   const [dismissing, setDismissing] = useState<ReminderSummary | null>(null);
+
+  // Palette bridge: "New reminder" from Cmd+K opens the CreateReminderOverlay
+  // after the palette navigates here.
+  const openCreate = useCallback(() => setShowCreate(true), []);
+  usePaletteAction("new-reminder", openCreate);
 
   const today = useMemo(() => getTodayBounds(), []);
   const thisWeek = useMemo(() => getWeekBounds(0), []);

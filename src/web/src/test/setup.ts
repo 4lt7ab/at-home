@@ -18,6 +18,16 @@ import "@testing-library/jest-dom/vitest";
 }
 
 // ---------------------------------------------------------------------------
+// Mock Element.prototype.scrollIntoView (jsdom does not implement it — the
+// @4lt7ab/ui Combobox List calls it after arrow-key focus changes)
+// ---------------------------------------------------------------------------
+if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = function scrollIntoView(): void {
+    /* no-op for jsdom */
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Mock window.matchMedia (needed by useTheme and any media-query-dependent code)
 // ---------------------------------------------------------------------------
 Object.defineProperty(window, "matchMedia", {

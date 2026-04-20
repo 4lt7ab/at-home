@@ -20,6 +20,10 @@ let mockPath = "/";
 vi.mock("./hooks", () => ({
   useEventFanOut: () => ({ onEvent: mockOnEvent, subscribeEvents: mockSubscribeEvents }),
   useHashRoute: () => ({ path: mockPath, navigate: mockNavigate }),
+  useLogs: () => ({ logs: [], total: 0, loading: false, error: null, refetch: vi.fn() }),
+  useShortcut: () => {},
+  useShortcutSuppression: () => {},
+  useRegisteredShortcuts: () => new Map(),
   EventSubscriptionContext: (() => {
     const { createContext } = require("react");
     return createContext(null);
@@ -49,6 +53,18 @@ vi.mock("./pages/NoteListPage", () => ({
 vi.mock("./pages/ReminderDashboardPage", () => ({
   ReminderDashboardPage: () => (
     <div data-testid="reminder-dashboard-page">ReminderDashboardPage</div>
+  ),
+}));
+
+vi.mock("./pages/LogsPage", () => ({
+  LogsPage: () => (
+    <div data-testid="logs-page">LogsPage</div>
+  ),
+}));
+
+vi.mock("./components/AppCommandPalette", () => ({
+  AppCommandPalette: () => (
+    <div data-testid="app-command-palette">AppCommandPalette</div>
   ),
 }));
 
