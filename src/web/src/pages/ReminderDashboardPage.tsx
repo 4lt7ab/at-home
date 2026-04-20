@@ -76,11 +76,19 @@ function CreateReminderOverlay({ onClose, onCreated }: {
             />
           </Field>
           <Field label="Recurrence">
-            <Select
-              options={RECURRENCE_OPTIONS}
+            <Select.Root
               value={recurrence}
-              onChange={(e) => setRecurrence(e.target.value as Recurrence | "")}
-            />
+              onValueChange={(v) => setRecurrence(v as Recurrence | "")}
+            >
+              <Select.Trigger>
+                <Select.Value />
+              </Select.Trigger>
+              <Select.Content>
+                {RECURRENCE_OPTIONS.map((o) => (
+                  <Select.Item key={o.value} value={o.value}>{o.label}</Select.Item>
+                ))}
+              </Select.Content>
+            </Select.Root>
           </Field>
         </Stack>
         {error && <div style={{ color: t.colorError, fontSize: t.fontSizeXs, marginTop: t.spaceXs }}>{error}</div>}
@@ -205,11 +213,19 @@ function EditReminderOverlay({ reminder, onClose, onChanged }: {
               />
             </Field>
             <Field label="Recurrence">
-              <Select
-                options={RECURRENCE_OPTIONS}
+              <Select.Root
                 value={recurrence}
-                onChange={(e) => setRecurrence(e.target.value as Recurrence | "")}
-              />
+                onValueChange={(v) => setRecurrence(v as Recurrence | "")}
+              >
+                <Select.Trigger>
+                  <Select.Value />
+                </Select.Trigger>
+                <Select.Content>
+                  {RECURRENCE_OPTIONS.map((o) => (
+                    <Select.Item key={o.value} value={o.value}>{o.label}</Select.Item>
+                  ))}
+                </Select.Content>
+              </Select.Root>
             </Field>
           </Stack>
           <div style={{ fontSize: t.fontSizeXs, color: t.colorTextMuted, marginTop: t.spaceMd }}>
