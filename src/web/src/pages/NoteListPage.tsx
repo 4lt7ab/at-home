@@ -117,8 +117,8 @@ function NoteDetailPanel({ note, onEdit, onDelete }: {
             </div>
           </div>
           <div style={{ display: "flex", gap: t.spaceXs, flexShrink: 0 }}>
-            <IconButton icon="edit" size={18} aria-label="Edit note" onClick={onEdit} />
-            <IconButton icon="trash" size={18} aria-label="Delete note" onClick={onDelete} />
+            <IconButton icon="edit" size="md" aria-label="Edit note" onClick={onEdit} />
+            <IconButton icon="trash" size="md" aria-label="Delete note" onClick={onDelete} />
           </div>
         </div>
 
@@ -174,7 +174,7 @@ function CreateNoteOverlay({ onClose, onCreated }: {
   }
 
   return (
-    <ModalShell onClose={onClose} maxWidth={560}>
+    <ModalShell onClose={onClose} width="lg">
       <form onSubmit={handleSubmit}>
         <h3 style={{ fontSize: t.fontSizeLg, fontWeight: t.fontWeightSemibold, marginBottom: t.spaceLg }}>New Note</h3>
         <Stack gap="sm">
@@ -232,7 +232,7 @@ function EditNoteOverlay({ note, onClose, onSaved }: {
   }
 
   return (
-    <ModalShell onClose={onClose} maxWidth={560}>
+    <ModalShell onClose={onClose} width="lg">
       <form onSubmit={handleSubmit}>
         <h3 style={{ fontSize: t.fontSizeLg, fontWeight: t.fontWeightSemibold, marginBottom: t.spaceLg }}>Edit Note</h3>
         <Stack gap="sm">
@@ -382,8 +382,7 @@ export function NoteListPage(): React.JSX.Element {
               </div>
               <IconButton
                 icon="plus"
-                size={18}
-                buttonSize="sm"
+                size="sm"
                 aria-label="New note"
                 onClick={() => setShowCreate(true)}
               />
@@ -520,8 +519,7 @@ export function NoteListPage(): React.JSX.Element {
             </Button>
             <IconButton
               icon="plus"
-              size={18}
-              buttonSize="sm"
+              size="sm"
               aria-label="New note"
               onClick={() => setShowCreate(true)}
             />

@@ -305,7 +305,7 @@ function DismissConfirmOverlay({ reminder, onClose, onDismissed }: {
     : "This reminder will be removed.";
 
   return (
-    <ModalShell onClose={onClose} maxWidth={420} role="alertdialog" aria-label="Confirm dismiss">
+    <ModalShell onClose={onClose} width="sm" role="alertdialog" aria-label="Confirm dismiss">
       <div style={{ textAlign: "center" }}>
         <div aria-hidden="true" style={{ fontSize: "2.5rem", lineHeight: 1, marginBottom: t.spaceSm }}>
           ✨
@@ -377,8 +377,7 @@ function ReminderCard({ reminder, onClick, onDismiss, index }: {
           </div>
           <IconButton
             icon="check"
-            size={16}
-            buttonSize="sm"
+            size="sm"
             onClick={(e) => { e.stopPropagation(); onDismiss(); }}
             aria-label={`Dismiss "${reminder.context_preview}"`}
           />

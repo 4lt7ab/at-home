@@ -291,15 +291,13 @@ function EntryRow({ entry, onEdit, onDelete, index }: {
           </div>
           <IconButton
             icon="edit"
-            size={16}
-            buttonSize="sm"
+            size="sm"
             onClick={onEdit}
             aria-label={`Edit entry`}
           />
           <IconButton
             icon="trash"
-            size={16}
-            buttonSize="sm"
+            size="sm"
             onClick={onDelete}
             aria-label={`Delete entry`}
           />
@@ -424,15 +422,13 @@ function LogCard({ log, expanded, onToggle, onEdit, onLogIt, onBackdate, busy, i
           </Button>
           <IconButton
             icon="calendar"
-            size={16}
-            buttonSize="sm"
+            size="sm"
             onClick={(e) => { e.stopPropagation(); onBackdate(); }}
             aria-label={`Backdate entry for ${log.name}`}
           />
           <IconButton
             icon="edit"
-            size={16}
-            buttonSize="sm"
+            size="sm"
             onClick={(e) => { e.stopPropagation(); onEdit(); }}
             aria-label={`Edit log ${log.name}`}
           />
