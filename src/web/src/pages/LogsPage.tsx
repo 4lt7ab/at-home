@@ -3,8 +3,10 @@ import { semantic as t, staggerStyle } from "@4lt7ab/ui/core";
 import {
   Card, Button, IconButton, Stack, Skeleton, EmptyState,
   Input, Textarea, ModalShell, ConfirmDialog, Field, DatePicker,
-  PageShell, SectionHeader,
 } from "@4lt7ab/ui/ui";
+// Retired in @4lt7ab/ui v1.0.0; shimmed locally until task 01KPM3JPWENK4TA2ZHVNSJ4G84
+// rewrites these call sites per docs/ui-v1-migration.md Axis 1.
+import { PageShell, SectionHeader } from "../components/ui-v1-compat";
 import type { LogSummary, LogEntrySummary } from "@domain/entities";
 import { useLogs, useLogEntries } from "../hooks";
 import {

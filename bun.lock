@@ -5,7 +5,7 @@
     "": {
       "name": "@x4lt7ab/at-home",
       "dependencies": {
-        "@4lt7ab/ui": "github:4lt7ab/ui#v0.2.26",
+        "@4lt7ab/ui": "github:4lt7ab/ui#v1.0.0",
         "@modelcontextprotocol/sdk": "1.27.1",
         "hono": "4.12.9",
         "postgres": "^3.4.9",
@@ -33,7 +33,7 @@
     },
   },
   "packages": {
-    "@4lt7ab/ui": ["@4lt7ab/ui@github:4lt7ab/ui#3fd9d4e", {}, "4lt7ab-ui-3fd9d4e", "sha512-rt5cMkAzAH0+6ihUDc2njcsZzqaypxMWSRDoNRw5HR+HrSMmNPx5wQmPDjNfAuXVLkcjCjMFDRhAeaOa/f8p7Q=="],
+    "@4lt7ab/ui": ["@4lt7ab/ui@github:4lt7ab/ui#29f2db5", {}, "4lt7ab-ui-29f2db5", "sha512-cJTqNL4VbGAMLeWkeXCXfQf25cIoKUiylQgG9TzrKLnPJTxf9EooxsZR43KOt8p5CJMbIK43/W1VEs5t79X55Q=="],
 
     "@adobe/css-tools": ["@adobe/css-tools@4.4.4", "", {}, "sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg=="],
 
