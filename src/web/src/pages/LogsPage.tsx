@@ -543,6 +543,8 @@ export function LogsPage(): React.JSX.Element {
         width: "100%",
         maxWidth: 800,
         margin: "0 auto",
+        padding: `${t.spaceLg} ${t.spaceMd}`,
+        boxSizing: "border-box",
         gap: t.spaceLg,
       }}
     >
