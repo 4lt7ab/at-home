@@ -53,16 +53,136 @@ Eight source files and three test files, exercising 28 distinct symbols from
 
 ## Axis 1 -- Retired components
 
-Components removed across v0.2.27-v1.0.0. Each site below requires an
-affirmative replacement decision before the pin can advance.
+Components removed across v0.2.27-v1.0.0. Replacements below are grounded in
+the upstream `CHANGELOG.md` at `@4lt7ab/ui#v1.0.0` (commit `29f2db5`) and the
+v1.0.0 upgrade guide (KB doc `01KPE1JZ93VM9QDK2QFM88GWBK`, §3, §4, §7).
 
 | Symbol | File:Line | Usage site(s) | Action |
 |--------|-----------|---------------|--------|
-| `PageShell` | `src/web/src/pages/ReminderDashboardPage.tsx:6` (import) | `<PageShell maxWidth={800} gap="lg">` wrapping the entire page (line 514, closing 608) | **Retirement replacement.** Replace `PageShell` with a local layout -- `<div>` + `Stack gap="lg"` inside a max-width container, matching whatever v1.0.0 exposes as the canonical page layout primitive. Preserve `maxWidth={800}` and `gap="lg"`. |
-| `PageShell` | `src/web/src/pages/LogsPage.tsx:6` (import) | `<PageShell maxWidth={800} gap="lg">` wrapping the entire page (line 537, closing 597) | **Retirement replacement.** Same as above. Both pages should land on the same replacement primitive. |
-| `SectionHeader` | `src/web/src/pages/ReminderDashboardPage.tsx:6` (import) | `<SectionHeader title={title} spacing="sm" />` inside `ReminderSection` (line 423) | **Retirement replacement.** Likely swap for a plain `<h2>` styled via `semantic` tokens, or whatever v1.0.0 exposes for section headings. Preserve `spacing="sm"` semantics. |
-| `SectionHeader` | `src/web/src/pages/LogsPage.tsx:6` (import) | `<SectionHeader title="Logs" spacing="sm" />` in the main section (line 545) | **Retirement replacement.** Same as above. |
-| `ExpandableCard` | `src/web/src/pages/ReminderDashboardPage.tsx:6` (import) | `<ExpandableCard title={...} variant="flat">` wrapping the dormant-reminders section (line 561, closing 583) | **Retirement replacement.** Needs a collapsible pattern -- most likely a local `useState`-driven toggle around a `Card variant="flat"`. Preserve the `title` + collapsed-by-default + `variant="flat"` shape. |
+| `PageShell` | `src/web/src/pages/ReminderDashboardPage.tsx:6` (import) | `<PageShell maxWidth={800} gap="lg">` wrapping the entire page (line 514, closing 608) | **Retire - roll your own.** v1.0.0 CHANGELOG: "Retire `PageShell`... the consumer's app shell is not the library's to own." No drop-in replacement. Replace with a plain `<div>` + semantic tokens per the §3 sketch below. Preserve `maxWidth={800}` and `gap="lg"`. |
+| `PageShell` | `src/web/src/pages/LogsPage.tsx:6` (import) | `<PageShell maxWidth={800} gap="lg">` wrapping the entire page (line 537, closing 597) | **Retire - roll your own.** Same as above. Both pages should land on the same shell. Consider factoring into a shared `<PageFrame>` local component in `src/web/src/components/` since the shape is identical. |
+| `SectionHeader` | `src/web/src/pages/ReminderDashboardPage.tsx:6` (import) | `<SectionHeader title={title} spacing="sm" />` inside `ReminderSection` (line 423) | **Swap for `Header`.** v1.0.0 consolidates `PageHeader` + `SectionHeader` into a single `Header`. Migrate to `<Header title={title} />` (`level` defaults to `'section'`). The retired `spacing` prop has no equivalent -- wrap in `<Stack gap="sm">` around the section to preserve the rhythm. |
+| `SectionHeader` | `src/web/src/pages/LogsPage.tsx:6` (import) | `<SectionHeader title="Logs" spacing="sm" />` in the main section (line 545) | **Swap for `Header`.** `<Header title="Logs" />`; wrap the section body in `<Stack gap="sm">` to replace `spacing="sm"`. Same migration as above. |
+| `ExpandableCard` | `src/web/src/pages/ReminderDashboardPage.tsx:6` (import) | `<ExpandableCard title={...} variant="flat">` wrapping the dormant-reminders section (line 561, closing 583) | **Compose `<Card>` + `useDisclosure()`.** v1.0.0 retires the component; the hook (new in `@4lt7ab/core`) owns state + ARIA, the consumer owns the chevron/header/panel layout. `Card variant="flat"` survives. Use the §4 `DisclosureCard` sketch below. Default-closed is the hook's default (`defaultOpen={false}`), matching the current collapsed-by-default behavior. |
+
+### Replacement sketches
+
+These are the v1.0.0 upgrade-guide patterns adapted to this repo's call sites.
+Copy-paste targets for the downstream rewrite tasks.
+
+#### §3 -- `PageShell` -> plain `<div>` + semantic tokens
+
+Both `ReminderDashboardPage` and `LogsPage` use the same `maxWidth={800} gap="lg"`
+envelope. One shared wrapper pays for itself on two sites.
+
+```tsx
+// Before
+import { PageShell } from '@4lt7ab/ui/ui';
+<PageShell maxWidth={800} gap="lg">…</PageShell>
+
+// After -- inline per page
+import { semantic as t } from '@4lt7ab/core';
+<div
+  style={{
+    display: 'flex',
+    flexDirection: 'column',
+    width: '100%',
+    maxWidth: 800,
+    margin: '0 auto',
+    padding: `${t.spaceLg} ${t.spaceLg}`,
+    gap: t.spaceLg,
+  }}
+>
+  …
+</div>
+```
+
+Optional factoring: lift into `src/web/src/components/PageFrame.tsx` if a third
+page adopts the same shape.
+
+#### §7 -- `SectionHeader` -> `Header`
+
+```tsx
+// Before
+import { SectionHeader } from '@4lt7ab/ui/ui';
+<section>
+  <SectionHeader title="Logs" spacing="sm" />
+  {children}
+</section>
+
+// After -- `Header` + Stack for the retired `spacing` prop
+import { Header, Stack } from '@4lt7ab/ui/ui';
+<section>
+  <Stack gap="sm">
+    <Header title="Logs" />
+    {children}
+  </Stack>
+</section>
+```
+
+`Header` defaults to `level="section"` (renders `<h2>`), matching
+`SectionHeader`'s old behavior. No `indicator` / `trailing` / `subtitle` slots
+are used at either call site, so the migration is a straight rename.
+
+#### §4 -- `ExpandableCard` -> `<Card>` + `useDisclosure()`
+
+```tsx
+// Before
+import { ExpandableCard } from '@4lt7ab/ui/ui';
+<ExpandableCard title={`Dormant${total > 0 ? ` (${total})` : ''}`} variant="flat">
+  {children}
+</ExpandableCard>
+
+// After -- DisclosureCard composition (lift into a local component)
+import { Card, IconChevronRight } from '@4lt7ab/ui/ui';
+import { semantic as t, useDisclosure } from '@4lt7ab/core';
+
+function DisclosureCard({ title, children, ...options }: {
+  title: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}): React.JSX.Element {
+  const { open, triggerProps, contentProps } = useDisclosure(options);
+  return (
+    <Card variant="flat" padding="xs">
+      <button
+        type="button"
+        {...triggerProps}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: t.spaceSm,
+          padding: `${t.spaceSm} ${t.spaceMd}`,
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          color: 'inherit',
+          font: 'inherit',
+          width: '100%',
+          textAlign: 'left',
+        }}
+      >
+        <span style={{ display: 'inline-flex', transition: 'transform 150ms', transform: open ? 'rotate(90deg)' : 'rotate(0deg)' }}>
+          <IconChevronRight size={20} />
+        </span>
+        <span style={{ fontWeight: t.fontWeightSemibold, fontSize: t.fontSizeSm }}>{title}</span>
+      </button>
+      <div {...contentProps} style={{ padding: `${t.spaceSm} ${t.spaceMd} ${t.spaceMd}` }}>
+        {children}
+      </div>
+    </Card>
+  );
+}
+
+<DisclosureCard title={`Dormant${total > 0 ? ` (${total})` : ''}`}>
+  {children}
+</DisclosureCard>
+```
+
+`useDisclosure({ defaultOpen: false })` (the default) matches the current
+collapsed-by-default behavior. `triggerProps` carry `aria-expanded` +
+`aria-controls`; `contentProps` carry `id` + `role="region"` + `hidden`.
+`Card variant="flat"` is retained on the v1.0.0 `CardVariant` union.
 
 Retired symbols with **zero usage** in `src/web/` (no-op):
 `MetadataTable`, `SectionLabel`, `FormModal`, `ShortcutHelpModal`,
@@ -298,8 +418,8 @@ anywhere in `src/web/`, so those parts of Axis 7 are no-op.
 
 ## Open questions / follow-up tasks
 
-The audit surfaced two gaps that the v1.0.0 release notes (not available in
-the task context) must resolve before the pin-bump lands:
+Both gaps surfaced during the audit are now resolved against the upstream
+v1.0.0 artifacts.
 
 1. **`Markdown` location -- RESOLVED (2026-04-19).** The upstream
    `CHANGELOG.md` at v0.2.26 has no `Markdown` path-move entry and an empty
@@ -312,14 +432,26 @@ the task context) must resolve before the pin-bump lands:
    full reasoning. (Task `01KPM41RWJFMP6DT35NQN4PQN6`.)
 
 2. **Replacement primitives for retired `PageShell`, `SectionHeader`,
-   `ExpandableCard`.** Each retired component listed in Axis 1 needs an
-   affirmative v1.0.0 replacement or a documented "roll your own with
-   semantic tokens" guidance. The replacements above are speculative
-   pending release notes.
+   `ExpandableCard` -- RESOLVED (2026-04-19).** Grounded in the v1.0.0
+   `CHANGELOG.md` (commit `29f2db5`) and upgrade guide
+   `01KPE1JZ93VM9QDK2QFM88GWBK` (§3, §4, §7):
+
+   - `PageShell` is retired with **no drop-in replacement** -- v1.0.0 guidance
+     is roll-your-own with a plain `<div>` + `semantic` tokens. Axis 1 carries
+     the §3 code sketch for the `maxWidth={800} gap="lg"` shape both pages
+     share.
+   - `SectionHeader` is **consolidated into `Header`** (`level` defaults to
+     `'section'`). The retired `spacing` prop has no equivalent on `Header`
+     and migrates to an outer `<Stack gap="sm">`.
+   - `ExpandableCard` is retired in favor of a `<Card>` + new
+     `useDisclosure()` hook composition (`@4lt7ab/core`). `Card variant="flat"`
+     survives. Axis 1 carries the §4 `DisclosureCard` sketch;
+     `defaultOpen={false}` preserves the current collapsed-by-default
+     behavior. (Task `01KPM41RWK0BJ36H7GZZZVQYGE`.)
 
 Filed as docs follow-up tasks in the `ui-v1-migration` group:
 
 - `01KPM41RWJFMP6DT35NQN4PQN6` -- Confirm Markdown location in @4lt7ab/ui v1.0.0
   release notes. **Resolved above.**
 - `01KPM41RWK0BJ36H7GZZZVQYGE` -- Identify v1.0.0 replacements for retired
-  PageShell / SectionHeader / ExpandableCard.
+  PageShell / SectionHeader / ExpandableCard. **Resolved above.**
