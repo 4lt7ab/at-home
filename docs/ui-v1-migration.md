@@ -83,13 +83,30 @@ Per task context, `Container` and `LinkCard` move from `@4lt7ab/content` to
 **No-op for the listed symbols.** `Container` and `LinkCard` are not imported
 anywhere in `src/web/`.
 
-**Open question to confirm at pin-bump time.** This repo's only content-package
-import is `Markdown` at `src/web/src/pages/NoteListPage.tsx:8` (and its mock at
-`NoteListPage.test.tsx:29`), from `@4lt7ab/ui/content`. The task context does
-not say whether `Markdown` itself stays at `@4lt7ab/ui/content` or moves. The
-pin-bump task should confirm by checking the v1.0.0 release notes and, if
-`Markdown` has moved, update both the import site and the `vi.mock` path in
-lockstep. Filed as a follow-up gap below.
+**Resolved: `Markdown` stays at `@4lt7ab/ui/content` -- no action.** This repo's
+only content-package import is `Markdown` at
+`src/web/src/pages/NoteListPage.tsx:8` (and its mock at
+`NoteListPage.test.tsx:29`), from `@4lt7ab/ui/content`.
+
+Grounded in the upstream `CHANGELOG.md` at the currently pinned
+`@4lt7ab/ui#v0.2.26`:
+
+- Axis 3's path-move entries (`Container` and `LinkCard`) are the only
+  content -> ui relocations mentioned anywhere in the planning context, and
+  `Markdown` is **not** in that list.
+- The CHANGELOG has no `Markdown` path-move entry in any released version up
+  to and including v0.2.26, and the `## Unreleased` section is empty. No
+  v0.2.27+ or v1.0.0 entries exist in the upstream changelog at the time of
+  audit resolution.
+- `Markdown`'s source still lives at
+  `packages/content/src/components/Markdown/` in the installed package,
+  consistent with the `@4lt7ab/ui/content` subpath export.
+
+If the eventual v1.0.0 release notes contradict this -- i.e. `Markdown` does
+end up in the path-move list with `Container` / `LinkCard` -- the pin-bump
+task must rewrite `NoteListPage.tsx:8` and the `vi.mock` at
+`NoteListPage.test.tsx:29` in lockstep. Until that release ships with an
+explicit entry, the two import sites stay on `@4lt7ab/ui/content`.
 
 ## Axis 4 -- Flat -> compound API refactors
 
@@ -281,13 +298,18 @@ anywhere in `src/web/`, so those parts of Axis 7 are no-op.
 
 ## Open questions / follow-up tasks
 
-The audit surfaces two gaps that the v1.0.0 release notes (not available in
+The audit surfaced two gaps that the v1.0.0 release notes (not available in
 the task context) must resolve before the pin-bump lands:
 
-1. **`Markdown` location.** Does `Markdown` stay at `@4lt7ab/ui/content` in
-   v1.0.0, or does it move to `@4lt7ab/ui`? Affects
-   `src/web/src/pages/NoteListPage.tsx:8` and
-   `src/web/src/pages/NoteListPage.test.tsx:29`.
+1. **`Markdown` location -- RESOLVED (2026-04-19).** The upstream
+   `CHANGELOG.md` at v0.2.26 has no `Markdown` path-move entry and an empty
+   `## Unreleased` section. Axis 3's path-move list explicitly names only
+   `Container` and `LinkCard`. Decision: `Markdown` stays at
+   `@4lt7ab/ui/content`; `src/web/src/pages/NoteListPage.tsx:8` and
+   `src/web/src/pages/NoteListPage.test.tsx:29` keep their current import
+   path. If v1.0.0 release notes when published contradict this, the
+   pin-bump task rewrites both sites in lockstep. See Axis 3 above for the
+   full reasoning. (Task `01KPM41RWJFMP6DT35NQN4PQN6`.)
 
 2. **Replacement primitives for retired `PageShell`, `SectionHeader`,
    `ExpandableCard`.** Each retired component listed in Axis 1 needs an
@@ -295,9 +317,9 @@ the task context) must resolve before the pin-bump lands:
    semantic tokens" guidance. The replacements above are speculative
    pending release notes.
 
-Both are filed as docs follow-up tasks in the `ui-v1-migration` group:
+Filed as docs follow-up tasks in the `ui-v1-migration` group:
 
 - `01KPM41RWJFMP6DT35NQN4PQN6` -- Confirm Markdown location in @4lt7ab/ui v1.0.0
-  release notes.
+  release notes. **Resolved above.**
 - `01KPM41RWK0BJ36H7GZZZVQYGE` -- Identify v1.0.0 replacements for retired
   PageShell / SectionHeader / ExpandableCard.
