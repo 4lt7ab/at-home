@@ -1,12 +1,10 @@
 import { useState, useMemo } from "react";
-import { semantic as t, staggerStyle } from "@4lt7ab/ui/core";
+import { semantic as t, staggerStyle, useDisclosure } from "@4lt7ab/ui/core";
 import {
   Card, Badge, Button, IconButton, Stack, Skeleton, EmptyState,
   Select, Textarea, ModalShell, ConfirmDialog, Field, DatePicker,
+  Header, IconChevronRight,
 } from "@4lt7ab/ui/ui";
-// Retired in @4lt7ab/ui v1.0.0; shimmed locally until task 01KPM3JPWENK4TA2ZHVNSJ4G84
-// rewrites these call sites per docs/ui-v1-migration.md Axis 1.
-import { PageShell, SectionHeader, ExpandableCard } from "../components/ui-v1-compat";
 import type { ReminderSummary, Recurrence } from "@domain/entities";
 import { useReminders } from "../hooks";
 import { createReminders, dismissReminders, updateReminders, deleteReminders } from "../api";
@@ -422,30 +420,84 @@ function ReminderSection({ title, reminders, loading, error, onEdit, onDismiss, 
 
   return (
     <section>
-      <SectionHeader title={title} spacing="sm" />
-      {error && <div style={{ color: t.colorError, fontSize: t.fontSizeSm, marginBottom: t.spaceMd }}>{error}</div>}
-      {loading && reminders.length === 0 && (
-        <Stack gap="sm">
-          <Skeleton height={56} />
-          <Skeleton height={56} />
-        </Stack>
-      )}
-      {!loading && reminders.length === 0 && alwaysShow && (
-        <div style={{
-          padding: `${t.spaceLg} 0`,
-          textAlign: "center",
-          color: t.colorTextMuted,
-          fontSize: t.fontSizeSm,
-        }}>
-          Nothing due today — you're all clear.
-        </div>
-      )}
       <Stack gap="sm">
-        {reminders.map((r, i) => (
-          <ReminderCard key={r.id} reminder={r} index={i} onClick={() => onEdit(r)} onDismiss={() => onDismiss(r)} />
-        ))}
+        <Header title={title} />
+        {error && <div style={{ color: t.colorError, fontSize: t.fontSizeSm, marginBottom: t.spaceMd }}>{error}</div>}
+        {loading && reminders.length === 0 && (
+          <Stack gap="sm">
+            <Skeleton height={56} />
+            <Skeleton height={56} />
+          </Stack>
+        )}
+        {!loading && reminders.length === 0 && alwaysShow && (
+          <div style={{
+            padding: `${t.spaceLg} 0`,
+            textAlign: "center",
+            color: t.colorTextMuted,
+            fontSize: t.fontSizeSm,
+          }}>
+            Nothing due today — you're all clear.
+          </div>
+        )}
+        <Stack gap="sm">
+          {reminders.map((r, i) => (
+            <ReminderCard key={r.id} reminder={r} index={i} onClick={() => onEdit(r)} onDismiss={() => onDismiss(r)} />
+          ))}
+        </Stack>
       </Stack>
     </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// DisclosureCard — local composition using useDisclosure() from @4lt7ab/core
+// per docs/ui-v1-migration.md §4. The hook owns open state + ARIA wiring
+// (aria-expanded, aria-controls, hidden); this component owns the
+// chevron-and-title trigger layout. Collapsed by default via useDisclosure's
+// defaultOpen=false.
+// ---------------------------------------------------------------------------
+
+function DisclosureCard({ title, children, defaultOpen }: {
+  title: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}): React.JSX.Element {
+  const { open, triggerProps, contentProps } = useDisclosure({ defaultOpen });
+  return (
+    <Card variant="flat" padding="xs">
+      <button
+        type="button"
+        {...triggerProps}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: t.spaceSm,
+          padding: `${t.spaceSm} ${t.spaceMd}`,
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          color: "inherit",
+          font: "inherit",
+          width: "100%",
+          textAlign: "left",
+        }}
+      >
+        <span
+          aria-hidden="true"
+          style={{
+            display: "inline-flex",
+            transition: "transform 150ms",
+            transform: open ? "rotate(90deg)" : "rotate(0deg)",
+          }}
+        >
+          <IconChevronRight size={20} />
+        </span>
+        <span style={{ fontWeight: t.fontWeightSemibold, fontSize: t.fontSizeSm }}>{title}</span>
+      </button>
+      <div {...contentProps} style={{ padding: `${t.spaceSm} ${t.spaceMd} ${t.spaceMd}` }}>
+        {children}
+      </div>
+    </Card>
   );
 }
 
@@ -513,7 +565,16 @@ export function ReminderDashboardPage(): React.JSX.Element {
   }
 
   return (
-    <PageShell maxWidth={800} gap="lg">
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        width: "100%",
+        maxWidth: 800,
+        margin: "0 auto",
+        gap: t.spaceLg,
+      }}
+    >
       {/* Compact toolbar — no redundant h1, the tab already says "Reminders" */}
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <Button variant="primary" size="sm" onClick={() => setShowCreate(true)}>+ New Reminder</Button>
@@ -560,9 +621,8 @@ export function ReminderDashboardPage(): React.JSX.Element {
 
       {/* Dormant section */}
       {(dormantData.reminders.length > 0 || dormantData.loading) && (
-        <ExpandableCard
+        <DisclosureCard
           title={`Dormant${dormantData.total > 0 ? ` (${dormantData.total})` : ""}`}
-          variant="flat"
         >
           {dormantData.error && (
             <div style={{ color: t.colorError, fontSize: t.fontSizeSm, marginBottom: t.spaceMd }}>{dormantData.error}</div>
@@ -582,7 +642,7 @@ export function ReminderDashboardPage(): React.JSX.Element {
               />
             ))}
           </Stack>
-        </ExpandableCard>
+        </DisclosureCard>
       )}
 
       {showCreate && (
@@ -607,6 +667,6 @@ export function ReminderDashboardPage(): React.JSX.Element {
           onDismissed={refetchAll}
         />
       )}
-    </PageShell>
+    </div>
   );
 }

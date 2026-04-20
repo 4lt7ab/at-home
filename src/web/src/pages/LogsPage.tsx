@@ -3,10 +3,8 @@ import { semantic as t, staggerStyle } from "@4lt7ab/ui/core";
 import {
   Card, Button, IconButton, Stack, Skeleton, EmptyState,
   Input, Textarea, ModalShell, ConfirmDialog, Field, DatePicker,
+  Header,
 } from "@4lt7ab/ui/ui";
-// Retired in @4lt7ab/ui v1.0.0; shimmed locally until task 01KPM3JPWENK4TA2ZHVNSJ4G84
-// rewrites these call sites per docs/ui-v1-migration.md Axis 1.
-import { PageShell, SectionHeader } from "../components/ui-v1-compat";
 import type { LogSummary, LogEntrySummary } from "@domain/entities";
 import { useLogs, useLogEntries } from "../hooks";
 import {
@@ -536,7 +534,16 @@ export function LogsPage(): React.JSX.Element {
   }, [refetch]);
 
   return (
-    <PageShell maxWidth={800} gap="lg">
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        width: "100%",
+        maxWidth: 800,
+        margin: "0 auto",
+        gap: t.spaceLg,
+      }}
+    >
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <Button variant="primary" size="sm" onClick={() => setShowCreate(true)}>+ New Log</Button>
       </div>
@@ -544,33 +551,35 @@ export function LogsPage(): React.JSX.Element {
       {error && <div style={{ color: t.colorError, fontSize: t.fontSizeSm }}>{error}</div>}
 
       <section>
-        <SectionHeader title="Logs" spacing="sm" />
-        {loading && logs.length === 0 && (
-          <Stack gap="sm">
-            <Skeleton height={72} />
-            <Skeleton height={72} />
-            <Skeleton height={72} />
-          </Stack>
-        )}
-        {!loading && logs.length === 0 && (
-          <EmptyState
-            message="No logs yet — create one to track things like 'Plant watering' or 'Trash out'."
-          />
-        )}
         <Stack gap="sm">
-          {logs.map((log, i) => (
-            <LogCard
-              key={log.id}
-              log={log}
-              index={i}
-              expanded={expandedId === log.id}
-              onToggle={() => setExpandedId((id) => (id === log.id ? null : log.id))}
-              onEdit={() => setEditing(log)}
-              onLogIt={() => handleLogIt(log)}
-              onBackdate={() => setBackdating(log)}
-              busy={loggingIds.has(log.id)}
+          <Header title="Logs" />
+          {loading && logs.length === 0 && (
+            <Stack gap="sm">
+              <Skeleton height={72} />
+              <Skeleton height={72} />
+              <Skeleton height={72} />
+            </Stack>
+          )}
+          {!loading && logs.length === 0 && (
+            <EmptyState
+              message="No logs yet — create one to track things like 'Plant watering' or 'Trash out'."
             />
-          ))}
+          )}
+          <Stack gap="sm">
+            {logs.map((log, i) => (
+              <LogCard
+                key={log.id}
+                log={log}
+                index={i}
+                expanded={expandedId === log.id}
+                onToggle={() => setExpandedId((id) => (id === log.id ? null : log.id))}
+                onEdit={() => setEditing(log)}
+                onLogIt={() => handleLogIt(log)}
+                onBackdate={() => setBackdating(log)}
+                busy={loggingIds.has(log.id)}
+              />
+            ))}
+          </Stack>
         </Stack>
       </section>
 
@@ -596,6 +605,6 @@ export function LogsPage(): React.JSX.Element {
           onCreated={refetch}
         />
       )}
-    </PageShell>
+    </div>
   );
 }
